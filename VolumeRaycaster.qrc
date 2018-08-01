@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/VolumeRaycaster">
+        <file>Resources/icons8-open-50.png</file>
+        <file>Resources/icons8-search-48.png</file>
+        <file>Resources/icons8-paint-brush-48.png</file>
+        <file>Resources/icons8-eraser-48.png</file>
+        <file>Resources/icons8-3d-object-48.png</file>
+        <file>Resources/icons8-save-all-48.png</file>
+    </qresource>
+</RCC>
