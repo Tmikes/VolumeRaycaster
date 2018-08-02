@@ -15,6 +15,8 @@ private:
 	int mDimx;
 	int mDimy;
 	int mDimz;
+	int mWidth;
+	int mHeight;
 	
 	std::vector<Square> mViews;
 
@@ -25,6 +27,7 @@ private:
 
 	GLuint mPosAttr;
 	GLuint mTexAttr;
+	GLuint mIndexBuf;
 	GLuint mPbo;
 	GLuint mMvpUniform;
 	GLuint mTexUniform;
@@ -32,9 +35,11 @@ private:
 	std::vector<GLfloat> mVertsData;
 	std::vector<GLfloat> mTexData;
 	std::vector<unsigned int> mIndicesData;
-	
+	void genFlag(Square pTexture, QVector3D pCol1, QVector3D pCol2, QVector3D pCol3);
 	bool mTwoViews;
 public:
+	void updateViews();
+
 	void resetViewer();
 	explicit GLMainView(QWidget *pParent = 0);
 	~GLMainView();	

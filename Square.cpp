@@ -2,6 +2,8 @@
 
 Square::Square(float pX, float pY, float pWidth, float pHeight, bool pVisible = true)
 {
+	mWidth = pWidth;
+	mHeight = pHeight;
 	mVertices = {
 		pX,pY,
 		pX,pY + pHeight,
@@ -19,6 +21,7 @@ Square::Square(float pX, float pY, float pWidth, float pHeight, bool pVisible = 
 
 }
 
+
 std::vector<GLfloat> Square::vertices()
 {
 	return mVertices;
@@ -29,7 +32,7 @@ std::vector<GLfloat> Square::texcoords()
 	return mTexcoords;
 }
 
-std::vector<GLuint> Square::indices(unsigned int pOffset = 0)
+std::vector<GLuint> Square::indices(GLuint pOffset = 0)
 {
 	return { pOffset + 0, pOffset + 1, pOffset + 2,
 		pOffset + 2, pOffset + 3, pOffset + 0 };
@@ -43,6 +46,16 @@ GLuint Square::texture()
 bool Square::visible()
 {
 	return mVisible;
+}
+
+float Square::height()
+{
+	return mHeight;
+}
+
+float Square::width()
+{
+	return mWidth;
 }
 
 Square::~Square()
