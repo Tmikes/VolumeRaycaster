@@ -1,68 +1,126 @@
 #include <gl/glew.h>
+#include "volumehelper.h"
 #include "GLMainView.h"
 
 
 GLdouble AspectRatio;
-QVector3D eye(0.5, 0.5, -2), center(0.5, 0.5, 0.5), up(0, 1, 0);
+QVector3D eye(0.5, 0.5, -2), target(0.5, 0.5, 0.5), up(0, 1, 0);
 
 void GLMainView::genFlag(Square pSquare, QVector3D pCol1, QVector3D pCol2, QVector3D pCol3) {
-	std::vector<float> colors;
+	std::vector<GLubyte> colors;
 	float r, g, b;
-	for (size_t y = 0; y < mHeight; y++)
-	{
-		for (size_t x = 0; x < mWidth; x++)
-		{
-			if (x == 0)
-			{
-				r = pCol1.x; g = pCol1.y; b = pCol1.z;
-			}
-			else if (x == mWidth / 3)
-			{
-				r = pCol2.x; g = pCol2.y; b = pCol2.z;
-			}
-			else if (x == 2 * mWidth / 3) {
-				r = pCol3.x; g = pCol3.y; b = pCol3.z;
-			}
-				colors.push_back(r);
-				colors.push_back(g);
-				colors.push_back(b);
-		}
-	}
 	int width = (int)(mWidth * pSquare.width());
 	int height = (int)(mHeight * pSquare.height());
+	for (size_t y = 0; y < height; y++)
+	{
+		for (size_t x = 0; x < width; x++)
+		{
+			if (x <  width / 3)
+			{
+				r = pCol1.x(); g = pCol1.y(); b = pCol1.z();
+			}
+			else if (x < 2* width / 3)
+			{
+				r = pCol2.x(); g = pCol2.y(); b = pCol2.z();
+			}
+			else {
+				r = pCol3.x(); g = pCol3.y(); b = pCol3.z();
+			}
+				colors.push_back((GLubyte)r);
+				colors.push_back((GLubyte)g);
+				colors.push_back((GLubyte)b);
+				colors.push_back((GLubyte)255);
+		}
+		std::vector<int>  a = { 1,2,3,4,5,6,7,8,9,10 },
+			b = { 1,1,1,1,1,1,1,1,1,1 }, c(10);
+		addWithCuda(c, a, b, 10);
+		int d = c[0];
+	}
+	
 	glBindTexture(GL_TEXTURE_2D, pSquare.texture());
-	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0,
-		GL_RGBA, GL_FLOAT, colors.data());
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, colors.data());
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
+
+void GLMainView::initPixelBuffer()
+{
+	if (mPbo)
+	{
+		// unregister this buffer object from CUDA C
+		checkCudaErrors(cudaGraphicsUnregisterResource(cuda_pbo_resource));
+
+		// delete old buffer
+		glDeleteBuffers(1, &mPbo);
+	}
+
+	// create pixel buffer object for display
+	glGenBuffers(1, &mPbo);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, mPbo);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, mWidth*mHeight * sizeof(GLubyte) * 4, 0, GL_STREAM_DRAW_ARB);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+
+	// register this buffer object with CUDA
+	//struct cudaGraphicsResource *tmpRessource = cuda_pbo_resource.get();
+	checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, mPbo, cudaGraphicsMapFlagsWriteDiscard));
+
+}
+
+
 
 void GLMainView::updateViews()
 {
 	for (std::vector<Square>::iterator v = mViews.begin(); v != mViews.end(); v++)
 	{
-		genFlag(*v, QVector3D(0, 0, 1), QVector3D(1, 1, 1), QVector3D(1,0,0));
+		genFlag(*v, QVector3D(0, 0, 255), QVector3D(255, 255, 255), QVector3D(255,0,0));
 	}
+
+	
+
+
 }
 
 
 
 void GLMainView::resetViewer() {
 	mTwoViews = false;
-	glGenBuffers(1, &mIndexBuf);
+	mViews.push_back(Square(0, 0, 0.5, 0.5, mWidth, mHeight));
+	mViews.push_back(Square(0.5, 0.5, 0.5, 0.5, mWidth, mHeight));
 
 
 }
 
 
+//void GLMainView::raycast(Square pView)
+//{
+//	copyInvViewMatrix(invViewMatrix, sizeof(float4) * 3);
+//
+//	// map PBO to get CUDA device pointer
+//	uint *d_output;
+//	// map PBO to get CUDA device pointer
+//	checkCudaErrors(cudaGraphicsMapResources(1, &cuda_pbo_resource, 0));
+//	size_t num_bytes;
+//	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes,
+//		cuda_pbo_resource));
+//	//printf("CUDA mapped PBO: May access %ld bytes\n", num_bytes);
+//
+//	// clear image
+//	checkCudaErrors(cudaMemset(d_output, 0, width*height * 4));
+//
+//	// call CUDA kernel, writing results to PBO
+//	render_kernel(gridSize, blockSize, d_output, width, height, density, transferOffset);
+//
+//	getLastCudaError("kernel failed");
+//
+//	checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
+//}
+
 
 GLMainView::GLMainView(QWidget *pParent) : QOpenGLWidget(pParent)
 {
 	// creat the views heeere !!
+	mWidth = mHeight = 1024;
 }
 
 GLMainView::~GLMainView()
@@ -90,13 +148,18 @@ void GLMainView::initializeGL()
 {
 	glewInit();
 	mProgram = std::make_unique<QOpenGLShaderProgram>(new QOpenGLShaderProgram(this));
-	mProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, "vertex.glsl");
-	mProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, "pixel.glsl");
-	mPosAttr = mProgram->uniformLocation("vertexPosition_modelspace");
-	mTexAttr = mProgram->uniformLocation("vertexUV");
+	mProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, "view.v.glsl");
+	mProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, "view.f.glsl");
+	mProgram->link();
+	mPosAttr = mProgram->attributeLocation("vertexPosition_modelspace");
+	mTexAttr = mProgram->attributeLocation("vertexUV");
 	mMvpUniform = mProgram->uniformLocation("MVP");
 	mTexUniform = mProgram->uniformLocation("myTextureSampler");
-	mProgram->link();
+	
+	glGenBuffers(1, &mIndexBuf);
+	resetViewer();
+	updateViews();
+
 
 }
 
@@ -104,49 +167,47 @@ void GLMainView::initializeGL()
 
 void GLMainView::paintGL()
 {
-	updateViews();
+	
 	// Assemble vertex and indice data for all volumes
 	mVertsData.clear();
 	mTexData.clear();
 	mIndicesData.clear();
-	int indicesCount = 0;
+	int vertscount = 0;
 	for (std::vector<Square>::iterator view = mViews.begin(); view != mViews.end(); ++view)
 	{
-		mVertsData.insert(mVertsData.end(), view->vertices().begin(), view->vertices().end());
-		mTexData.insert(mTexData.end(), view->texcoords().begin(), view->texcoords().end());
-		std::vector<GLuint> currentIndices = view->indices(indicesCount);
+		std::vector<GLfloat> currentVerts = view->vertices(), currentTexcoords = view->texcoords();
+		mVertsData.insert(mVertsData.end(), currentVerts.begin(), currentVerts.end());
+		mTexData.insert(mTexData.end(), currentTexcoords.begin(), currentTexcoords.end());
+		std::vector<GLushort> currentIndices = view->indices(vertscount);
 		mIndicesData.insert(mIndicesData.end(), currentIndices.begin(), currentIndices.end());
-		indicesCount += currentIndices.size();
+		vertscount += currentVerts.size()/2;
 	}
 
 
-	glClearColor(1.0, 1.0, 1.0, 1.0);
+	glClearColor(1.0, 1.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	mProgram->bind();
 	QMatrix4x4 projectionMatrix;
-	projectionMatrix.ortho(0, 1, 0, 1.0 / AspectRatio, 0, 1);
+	projectionMatrix.ortho(0, 1, 0, 1.0 , -2, 2);
 	QMatrix4x4 viewMatrix;
-	viewMatrix.lookAt(eye, center, up);
-	mProgram->setUniformValue(mMvpUniform, viewMatrix*projectionMatrix);
+	viewMatrix.translate(0, 0, -1);
+	mProgram->setUniformValue(mMvpUniform, projectionMatrix*viewMatrix);
 	glEnable(GL_ALPHA_TEST);
 	glAlphaFunc(GL_GREATER, 0.05f);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glBindBuffer(GL_ARRAY_BUFFER, mPosAttr);
-	glBufferData(GL_ARRAY_BUFFER, mVertsData.size() * sizeof(GLfloat), mVertsData.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(mPosAttr, 2, GL_FLOAT, GL_FALSE, 0, 0);
+	
+	glVertexAttribPointer(mPosAttr, 2, GL_FLOAT, GL_FALSE, 0, mVertsData.data() );
 
-	glBindBuffer(GL_ARRAY_BUFFER, mTexAttr);
-	glBufferData(GL_ARRAY_BUFFER, mTexData.size() * sizeof(GLfloat), mTexData.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(mPosAttr, 2, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(mTexAttr, 2, GL_FLOAT, GL_FALSE, 0, mTexData.data());
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBuf);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIndicesData.size() * sizeof(GLuint), mIndicesData.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIndicesData.size() * sizeof(GLushort), mIndicesData.data(), GL_STATIC_DRAW);
 
-	mProgram->enableAttributeArray(mPosAttr);
-	mProgram->enableAttributeArray(mTexAttr);
+	glEnableVertexAttribArray(mPosAttr);
+	glEnableVertexAttribArray(mTexAttr);
 	int indiceAt = 0;
 	for (std::vector<Square>::iterator view = mViews.begin(); view != mViews.end(); ++view)
 	{
@@ -154,13 +215,13 @@ void GLMainView::paintGL()
 		glBindTexture(GL_TEXTURE_2D, view->texture());
 		glUniform1i(mTexUniform, 0);
 
-		glDrawElements(GL_TRIANGLES, view->indices().size(), GL_UNSIGNED_INT, mIndicesData.data() + indiceAt);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBuf);
+		glDrawElements(GL_TRIANGLES, view->indices().size(), GL_UNSIGNED_SHORT, (void *) (indiceAt * sizeof(GLushort)));
 		indiceAt += view->indices().size();
 	}
-
-	mProgram->disableAttributeArray(mPosAttr);
-	mProgram->disableAttributeArray(mTexAttr);
-	glFlush();
+	glDisableVertexAttribArray(mTexAttr);
+	glDisableVertexAttribArray(mPosAttr);
+	//glFlush();
 	mProgram->release();
 }
 
@@ -169,10 +230,17 @@ void GLMainView::resizeGL(int pW, int pH) {
 	glViewport(0, 0, pW, pH);
 }
 
+int oldX, oldY;
 void GLMainView::mouseMoveEvent(QMouseEvent * pEvent)
 {
+	QVector2D rotationAngles(pEvent->x() - oldX, pEvent->y() - oldY);
+	mViews[0].updateViewMatrix(rotationAngles);
+	oldX = pEvent->x();
+	oldY = pEvent->y();
 }
 
 void GLMainView::mousePressEvent(QMouseEvent * pEvent)
 {
+	oldX = pEvent->x();
+	oldY = pEvent->y();
 }
