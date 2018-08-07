@@ -18,7 +18,6 @@ Square::Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth,
 		1,0
 	};
 
-
 	mVisible = pVisible;
 	glGenTextures(1, &mTexture);
 	glBindTexture(GL_TEXTURE_2D, mTexture);
@@ -26,6 +25,18 @@ Square::Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth,
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// create pixel buffer object for display
+	glGenBuffers(1, &mPbo);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, mPbo);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, pTexWidth*pTexHeight * sizeof(GLubyte) * 4, 0, GL_STREAM_DRAW_ARB);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+
+	cudaError t = cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, mPbo, cudaGraphicsMapFlagsWriteDiscard);
+	checkCudaErrors(t);
+	
+	mTexWidth = pTexWidth;
+	mTexHeight = pTexHeight;
 	mTranslation = QVector3D(0, 0, -4);
 	mViewMatrix.translate(mTranslation);
 }
@@ -71,6 +82,12 @@ GLuint Square::texture()
 	return mTexture;
 }
 
+GLuint Square::pbo()
+{
+	return mPbo;
+}
+
+
 bool Square::visible()
 {
 	return mVisible;
@@ -86,6 +103,17 @@ float Square::width()
 	return mWidth;
 }
 
+float Square::texWidth()
+{
+	return mTexWidth;
+}
+
+float Square::texHeight()
+{
+	return mTexHeight;
+}
+
 Square::~Square()
 {
+	checkCudaErrors(cudaGraphicsUnregisterResource(cuda_pbo_resource));
 }

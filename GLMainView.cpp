@@ -1,12 +1,16 @@
 #include <gl/glew.h>
 #include "volumehelper.h"
 #include "GLMainView.h"
+#include <fstream>
 
 
 GLdouble AspectRatio;
 QVector3D eye(0.5, 0.5, -2), target(0.5, 0.5, 0.5), up(0, 1, 0);
-
-void GLMainView::genFlag(Square pSquare, QVector3D pCol1, QVector3D pCol2, QVector3D pCol3) {
+int iDivUp(int a, int b)
+{
+	return (a % b != 0) ? (a / b + 1) : (a / b);
+}
+void GLMainView::genFlag(Square& pSquare, QVector3D pCol1, QVector3D pCol2, QVector3D pCol3) {
 	std::vector<GLubyte> colors;
 	float r, g, b;
 	int width = (int)(mWidth * pSquare.width());
@@ -44,28 +48,18 @@ void GLMainView::genFlag(Square pSquare, QVector3D pCol1, QVector3D pCol2, QVect
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void GLMainView::initPixelBuffer()
-{
-	if (mPbo)
-	{
-		// unregister this buffer object from CUDA C
-		checkCudaErrors(cudaGraphicsUnregisterResource(cuda_pbo_resource));
-
-		// delete old buffer
-		glDeleteBuffers(1, &mPbo);
-	}
-
-	// create pixel buffer object for display
-	glGenBuffers(1, &mPbo);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, mPbo);
-	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, mWidth*mHeight * sizeof(GLubyte) * 4, 0, GL_STREAM_DRAW_ARB);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
-
-	// register this buffer object with CUDA
-	//struct cudaGraphicsResource *tmpRessource = cuda_pbo_resource.get();
-	checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, mPbo, cudaGraphicsMapFlagsWriteDiscard));
-
-}
+//void GLMainView::registerPixelBuffers()
+//{
+//	checkCudaErrors(cudaGraphicsUnregisterResource(mCuda_pbo_resource));
+//	for (std::vector<Square>::iterator view  = mViews.begin();  view != mViews.end(); view++)
+//	{
+//		// register this buffer object with CUDA
+//		//struct cudaGraphicsResource *tmpRessource = cuda_pbo_resource.get();
+//		
+//	}
+//	
+//
+//}
 
 
 
@@ -73,7 +67,7 @@ void GLMainView::updateViews()
 {
 	for (std::vector<Square>::iterator v = mViews.begin(); v != mViews.end(); v++)
 	{
-		genFlag(*v, QVector3D(0, 0, 255), QVector3D(255, 255, 255), QVector3D(255,0,0));
+		genFlag((*v), QVector3D(0, 0, 255), QVector3D(255, 255, 255), QVector3D(255,0,0));
 	}
 
 	
@@ -86,58 +80,78 @@ void GLMainView::updateViews()
 void GLMainView::resetViewer() {
 	mTwoViews = false;
 	mViews.push_back(Square(0, 0, 0.5, 0.5, mWidth, mHeight));
-	mViews.push_back(Square(0.5, 0.5, 0.5, 0.5, mWidth, mHeight));
+	mLoaded = false;
+	//mViews.push_back(Square(0.5, 0.5, 0.5, 0.5, mWidth, mHeight));
 
 
 }
 
 
-//void GLMainView::raycast(Square pView)
-//{
-//	copyInvViewMatrix(invViewMatrix, sizeof(float4) * 3);
-//
-//	// map PBO to get CUDA device pointer
-//	uint *d_output;
-//	// map PBO to get CUDA device pointer
-//	checkCudaErrors(cudaGraphicsMapResources(1, &cuda_pbo_resource, 0));
-//	size_t num_bytes;
-//	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes,
-//		cuda_pbo_resource));
-//	//printf("CUDA mapped PBO: May access %ld bytes\n", num_bytes);
-//
-//	// clear image
-//	checkCudaErrors(cudaMemset(d_output, 0, width*height * 4));
-//
-//	// call CUDA kernel, writing results to PBO
-//	render_kernel(gridSize, blockSize, d_output, width, height, density, transferOffset);
-//
+void GLMainView::raycast(Square& pView)
+{
+	copyInvViewMatrix(pView.viewMatrix());
+	dim3 blockSize(8,8,1);
+	dim3 gridSize(iDivUp(pView.texWidth(), blockSize.x), iDivUp(pView.texHeight(), blockSize.y));
+	// map PBO to get CUDA device pointer
+	uint *d_output;
+	
+	// map PBO to get CUDA device pointer
+	cudaError err =  cudaGraphicsMapResources(1, &(pView.cuda_pbo_resource), 0);
+	checkCudaErrors(err);
+//	checkCudaErrors(cudaGraphicsMapResources(1, &(pView.cuda_pbo_resource), 0));
+
+
+	int a = 1 + 5;
+	size_t num_bytes;
+	cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes, pView.cuda_pbo_resource);
+	//printf("CUDA mapped PBO: May access %ld bytes\n", num_bytes);
+
+	// clear image
+	cudaMemset(d_output, 0, pView.texWidth()*pView.texHeight() * sizeof(uint));
+
+	
+
+	// call CUDA kernel, writing results to PBO
+	render_kernel(gridSize, blockSize, d_output, pView.texWidth(), pView.texHeight(), mDensity, mTransferOffset);
+
 //	getLastCudaError("kernel failed");
-//
-//	checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
-//}
+
+	cudaGraphicsUnmapResources(1, &pView.cuda_pbo_resource, 0);
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	// copy from pbo to texture
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pView.pbo());
+	glBindTexture(GL_TEXTURE_2D, pView.texture());
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pView.texWidth(), pView.texHeight(), GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
 
 
 GLMainView::GLMainView(QWidget *pParent) : QOpenGLWidget(pParent)
 {
 	// creat the views heeere !!
+	
 	mWidth = mHeight = 1024;
 }
 
 GLMainView::~GLMainView()
 {
+	freeCudaBuffers();
+
 }
 
-void GLMainView::setData(std::vector<unsigned char> pData)
+void GLMainView::setData(std::vector<unsigned char> pData, int pDimx, int pDimy, int pDimz)
 {
 	mData = pData;
-}
-
-void GLMainView::setDimensions(int pDimx, int pDimy, int pDimz)
-{
 	mDimx = pDimx;
 	mDimy = pDimy;
 	mDimz = pDimz;
+	initCuda(mData, mDimx, mDimy, mDimz);
+	mLoaded = true;
 }
+
+
 
 std::vector<unsigned char> GLMainView::data()
 {
@@ -155,7 +169,10 @@ void GLMainView::initializeGL()
 	mTexAttr = mProgram->attributeLocation("vertexUV");
 	mMvpUniform = mProgram->uniformLocation("MVP");
 	mTexUniform = mProgram->uniformLocation("myTextureSampler");
-	
+	//cuda
+	int devID = gpuGetMaxGflopsDeviceId();
+	cudaGLSetGLDevice(devID);
+
 	glGenBuffers(1, &mIndexBuf);
 	resetViewer();
 	updateViews();
@@ -175,6 +192,11 @@ void GLMainView::paintGL()
 	int vertscount = 0;
 	for (std::vector<Square>::iterator view = mViews.begin(); view != mViews.end(); ++view)
 	{
+		if (mLoaded)
+		{
+			raycast(*view);
+		}
+		
 		std::vector<GLfloat> currentVerts = view->vertices(), currentTexcoords = view->texcoords();
 		mVertsData.insert(mVertsData.end(), currentVerts.begin(), currentVerts.end());
 		mTexData.insert(mTexData.end(), currentTexcoords.begin(), currentTexcoords.end());

@@ -1,5 +1,6 @@
 #include "VolumeRaycaster.h"
 #include <qmessagebox.h>
+#include <qfiledialog.h>
 
 VolumeRaycaster::VolumeRaycaster(QWidget *parent)
 	: QMainWindow(parent)
@@ -10,7 +11,28 @@ VolumeRaycaster::VolumeRaycaster(QWidget *parent)
 }
 
 void VolumeRaycaster::on_actionOpen_triggered() {
-	/*QMessageBox msgbox;
-	msgbox.setText("sum of numbers are...." );
-	msgbox.exec();*/
+	QString fileName = QFileDialog::getOpenFileName(this,
+		tr("Open a volume"), "",
+		tr("All Files (*);;VTK file (*.vtk)"));
+	if (fileName.isEmpty())
+		return;
+	else {
+
+		QFile file(fileName);
+
+		if (!file.open(QIODevice::ReadOnly)) {
+			QMessageBox::information(this, tr("Unable to open file"),
+				file.errorString());
+			return;
+		}
+		QDataStream in(&file);
+		int dimx = 32, dimy = 32, dimz = 32;
+		std::vector<unsigned char> data(dimx*dimy*dimz);
+		in.setVersion(QDataStream::Qt_4_5);
+		int i = file.size();
+		in.readRawData((char*)data.data(), i);
+		ui.openGLWidget->setData(data, dimx, dimy, dimz);
+
+	}
+
 }

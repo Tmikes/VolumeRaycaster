@@ -144,7 +144,7 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 		//sample *= 64.0f;    // scale for 10-bit data
 
 		// lookup in transfer function texture
-		float4 col = tex3D(transferTex, sample, transferOffset,0);
+		float4 col = tex3D(transferTex, /*sample*/0, 0,0);
 		col.w *= density;
 
 		// "under" operator for back-to-front blending
@@ -410,7 +410,7 @@ void render_kernel(dim3 gridSize, dim3 blockSize, unsigned int *d_output, unsign
 
 extern "C" void copyInvViewMatrix(std::vector<float> pInvViewMatrix)
 {
-	checkCudaErrors(cudaMemcpyToSymbol(c_invViewMatrix, pInvViewMatrix.data(), pInvViewMatrix.size()));
+	checkCudaErrors(cudaMemcpyToSymbol(c_invViewMatrix, pInvViewMatrix.data(), sizeof(float)*pInvViewMatrix.size()));
 }
 
 

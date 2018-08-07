@@ -4,6 +4,7 @@
 #include <qvector2d.h>
 #include <qvector3d.h>
 #include <qmatrix4x4.h>
+#include <memory>
 
 // CUDA Runtime, Interop, and includes
 #include <cuda_runtime.h>
@@ -25,8 +26,12 @@ private :
 	std::vector<GLfloat> mTexcoords;
 	float mWidth;
 	float mHeight;
+	float mTexWidth;
+	float mTexHeight;
+	GLuint mPbo;
 	bool mVisible;
 	QMatrix4x4 mViewMatrix;
+	
 public:
 
 	Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth, float pTexHeight, bool pVisible = true);
@@ -37,9 +42,13 @@ public:
 	std::vector<float> viewMatrix();
 	QVector3D mTranslation;
 	GLuint texture();
+	GLuint pbo();
+	cudaGraphicsResource* cuda_pbo_resource; // CUDA Graphics Resource (to transfer PBO)
 	bool visible();
 	float height();
 	float width();
+	float texWidth();
+	float texHeight();
 	~Square();
 };
 

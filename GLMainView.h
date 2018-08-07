@@ -7,6 +7,7 @@
 #include <vector>
 
 
+
 class GLMainView : public QOpenGLWidget
 {
 	Q_OBJECT
@@ -19,7 +20,8 @@ private:
 	int mDimz;
 	int mWidth;
 	int mHeight;
-	
+	float mTransferOffset = 0;
+	float mDensity = 0;
 	std::vector<Square> mViews;
 
 	GLuint mTexView1;
@@ -30,19 +32,19 @@ private:
 	GLuint mPosAttr;
 	GLuint mTexAttr;
 	GLuint mIndexBuf;
-	GLuint mPbo;
-	struct cudaGraphicsResource* cuda_pbo_resource; // CUDA Graphics Resource (to transfer PBO)
+	
 	GLuint mMvpUniform;
 	GLuint mTexUniform;
 
 	std::vector<GLfloat> mVertsData;
 	std::vector<GLfloat> mTexData;
 	std::vector<GLushort> mIndicesData;
-	void genFlag(Square pTexture, QVector3D pCol1, QVector3D pCol2, QVector3D pCol3);
-	void raycast(Square pView);
+	void genFlag(Square& pTexture, QVector3D pCol1, QVector3D pCol2, QVector3D pCol3);
+	void raycast(Square& pView);
 	bool mTwoViews;
-	void initPixelBuffer();
-
+	bool mLoaded;
+	//void registerPixelBuffers();
+	
 protected:
 	void mouseMoveEvent(QMouseEvent *pEvent) override;
 	void mousePressEvent(QMouseEvent *pEvent) override;
@@ -62,8 +64,7 @@ public:
 	std::vector<unsigned char> data();
 	
 	//setters
-	void setData(std::vector<unsigned char> pData);
-	void GLMainView::setDimensions(int pDimx, int pDimy, int pDimz);
+	void setData(std::vector<unsigned char> pData, int pDimx, int pDimy, int pDimz);
 
 };
 
