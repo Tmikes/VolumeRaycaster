@@ -7,7 +7,7 @@ extern "C" void addWithCuda(std::vector<int>  &c, const std::vector<int> a, cons
 extern "C" void freeCudaBuffers();
 
 
-extern "C" void render_kernel(dim3 gridSize, dim3 blockSize, unsigned int *d_output, unsigned int imageW, unsigned int imageH,float density, float transferOffset);
+extern "C" void render_kernel(dim3 gridSize, dim3 blockSize, unsigned int *d_output, unsigned int imageW, unsigned int imageH,float density, float transferOffset, float3 dim);
 
 extern "C" void copyInvViewMatrix(std::vector<float> pInvViewMatrix);
 

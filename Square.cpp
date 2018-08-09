@@ -19,6 +19,12 @@ Square::Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth,
 	};
 
 	mVisible = pVisible;
+	// create pixel buffer object for display
+	glGenBuffers(1, &mPbo);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, mPbo);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, pTexWidth*pTexHeight * sizeof(GLubyte) * 4, 0, GL_STREAM_DRAW_ARB);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+
 	glGenTextures(1, &mTexture);
 	glBindTexture(GL_TEXTURE_2D, mTexture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, pTexWidth, pTexHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL /* empty data*/);
@@ -26,18 +32,14 @@ Square::Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth,
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	// create pixel buffer object for display
-	glGenBuffers(1, &mPbo);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, mPbo);
-	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, pTexWidth*pTexHeight * sizeof(GLubyte) * 4, 0, GL_STREAM_DRAW_ARB);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+	
 
-	cudaError t = cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, mPbo, cudaGraphicsMapFlagsWriteDiscard);
-	checkCudaErrors(t);
+	//cudaError t = cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, mPbo, cudaGraphicsMapFlagsWriteDiscard);
+	//checkCudaErrors(t);
 	
 	mTexWidth = pTexWidth;
 	mTexHeight = pTexHeight;
-	mTranslation = QVector3D(0, 0, -4);
+	mTranslation = QVector3D(0, 0, 4);
 	mViewMatrix.translate(mTranslation);
 }
 
@@ -115,5 +117,5 @@ float Square::texHeight()
 
 Square::~Square()
 {
-	checkCudaErrors(cudaGraphicsUnregisterResource(cuda_pbo_resource));
+	//checkCudaErrors(cudaGraphicsUnregisterResource(cuda_pbo_resource));
 }

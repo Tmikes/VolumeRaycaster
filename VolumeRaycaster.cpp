@@ -8,6 +8,8 @@ VolumeRaycaster::VolumeRaycaster(QWidget *parent)
 	ui.setupUi(this);
 	connect(ui.actionOpen, SIGNAL(ui.actionOpen->triggered),
 		this, SLOT(on_actionOpen_triggered));
+	connect(ui.tfSlider, SIGNAL(ui.tfSlider->valueChanged),
+		this, SLOT(on_tfSlider_valueChanged));
 }
 
 void VolumeRaycaster::on_actionOpen_triggered() {
@@ -35,4 +37,10 @@ void VolumeRaycaster::on_actionOpen_triggered() {
 
 	}
 
+}
+
+void VolumeRaycaster::on_tfSlider_valueChanged(int pValue)
+{
+	float min = ui.tfSlider->minimum(), max = ui.tfSlider->maximum();
+	ui.openGLWidget->setTF_offset((pValue - min) / (max - min));
 }

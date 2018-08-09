@@ -36,6 +36,8 @@ private:
 	GLuint mMvpUniform;
 	GLuint mTexUniform;
 
+	float mTF_offset;
+
 	std::vector<GLfloat> mVertsData;
 	std::vector<GLfloat> mTexData;
 	std::vector<GLushort> mIndicesData;
@@ -53,6 +55,7 @@ protected:
 	void resizeGL(int pW, int pH) override;
 
 public:
+	void setTF_offset(float pOffset);
 	void updateViews();
 	void resetViewer();
 	explicit GLMainView(QWidget *pParent = 0);

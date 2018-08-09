@@ -1,4 +1,4 @@
-#include <gl/glew.h>
+﻿#include <gl/glew.h>
 #include "volumehelper.h"
 #include "GLMainView.h"
 #include <fstream>
@@ -41,11 +41,12 @@ void GLMainView::genFlag(Square& pSquare, QVector3D pCol1, QVector3D pCol2, QVec
 		int d = c[0];
 	}
 	
-	glBindTexture(GL_TEXTURE_2D, pSquare.texture());
+	/*glBindTexture(GL_TEXTURE_2D, pSquare.texture());
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, colors.data());
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);*/
+
 }
 
 //void GLMainView::registerPixelBuffers()
@@ -63,6 +64,12 @@ void GLMainView::genFlag(Square& pSquare, QVector3D pCol1, QVector3D pCol2, QVec
 
 
 
+void GLMainView::setTF_offset(float pOffset)
+{
+	mTF_offset = pOffset;
+	update();
+}
+
 void GLMainView::updateViews()
 {
 	for (std::vector<Square>::iterator v = mViews.begin(); v != mViews.end(); v++)
@@ -79,7 +86,7 @@ void GLMainView::updateViews()
 
 void GLMainView::resetViewer() {
 	mTwoViews = false;
-	mViews.push_back(Square(0, 0, 0.5, 0.5, mWidth, mHeight));
+	mViews.push_back(Square(0, 0, 1, 1, mWidth, mHeight));
 	mLoaded = false;
 	//mViews.push_back(Square(0.5, 0.5, 0.5, 0.5, mWidth, mHeight));
 
@@ -89,6 +96,39 @@ void GLMainView::resetViewer() {
 
 void GLMainView::raycast(Square& pView)
 {
+	cudaGraphicsResource *cuda_pbo_resource;
+	GLuint pbo = 0;
+	//if (pbo)
+	//{
+	//	// unregister this buffer object from CUDA C
+	//	checkCudaErrors(cudaGraphicsUnregisterResource(cuda_pbo_resource));
+
+	//	// delete old buffer
+	//	glDeleteBuffers(1, &pbo);
+	//	
+	//}
+
+	//
+	//glGenBuffers(1, &pbo);
+	//glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pbo);
+	//glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, mWidth*mHeight * sizeof(GLubyte) * 4, 0, GL_STREAM_DRAW_ARB);
+	//glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+
+	//GLuint tex;
+	//// create texture for display
+	//glGenTextures(1, &tex);
+	//glBindTexture(GL_TEXTURE_2D, tex);
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, mWidth, mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	//glBindTexture(GL_TEXTURE_2D, 0);
+
+
+	cudaError t = cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, pView.pbo(), cudaGraphicsMapFlagsWriteDiscard);
+	checkCudaErrors(t);
+
+	
+
 	copyInvViewMatrix(pView.viewMatrix());
 	dim3 blockSize(8,8,1);
 	dim3 gridSize(iDivUp(pView.texWidth(), blockSize.x), iDivUp(pView.texHeight(), blockSize.y));
@@ -96,35 +136,54 @@ void GLMainView::raycast(Square& pView)
 	uint *d_output;
 	
 	// map PBO to get CUDA device pointer
-	cudaError err =  cudaGraphicsMapResources(1, &(pView.cuda_pbo_resource), 0);
+	cudaError err =  cudaGraphicsMapResources(1, &(cuda_pbo_resource), 0);
 	checkCudaErrors(err);
 //	checkCudaErrors(cudaGraphicsMapResources(1, &(pView.cuda_pbo_resource), 0));
 
 
 	int a = 1 + 5;
 	size_t num_bytes;
-	cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes, pView.cuda_pbo_resource);
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes, cuda_pbo_resource));
 	//printf("CUDA mapped PBO: May access %ld bytes\n", num_bytes);
 
 	// clear image
-	cudaMemset(d_output, 0, pView.texWidth()*pView.texHeight() * sizeof(uint));
+	checkCudaErrors(cudaMemset(d_output, 0, pView.texWidth()*pView.texHeight() * 4));
 
 	
 
 	// call CUDA kernel, writing results to PBO
-	render_kernel(gridSize, blockSize, d_output, pView.texWidth(), pView.texHeight(), mDensity, mTransferOffset);
+	render_kernel(gridSize, blockSize, d_output, pView.texWidth(), pView.texHeight(), mDensity, mTF_offset, float3({ (float)mDimx,(float)mDimy, (float)mDimz }));
 
-//	getLastCudaError("kernel failed");
+	getLastCudaError("kernel failed");
 
-	cudaGraphicsUnmapResources(1, &pView.cuda_pbo_resource, 0);
+	
 
+	checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
+	//glMatrixMode(GL_MODELVIEW);
+	//glLoadIdentity();
+	////GL.Color3(Color.White);
+	//glClear(GL_COLOR_BUFFER_BIT);
+	
+
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// draw image from PBO
+	glDisable(GL_DEPTH_TEST);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	// copy from pbo to texture
+	
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pView.pbo());
 	glBindTexture(GL_TEXTURE_2D, pView.texture());
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pView.texWidth(), pView.texHeight(), GL_RGBA, GL_UNSIGNED_BYTE, 0);
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+
+	std::vector<unsigned char> tmp(pView.texWidth()*pView.texHeight() * 4);
+	
+	glBindTexture(GL_TEXTURE_2D, pView.texture());
+	
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, tmp.data());
 	glBindTexture(GL_TEXTURE_2D, 0);
+	//glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 
@@ -133,6 +192,7 @@ GLMainView::GLMainView(QWidget *pParent) : QOpenGLWidget(pParent)
 	// creat the views heeere !!
 	
 	mWidth = mHeight = 1024;
+	mDensity = 0.05f;
 }
 
 GLMainView::~GLMainView()
@@ -206,7 +266,7 @@ void GLMainView::paintGL()
 	}
 
 
-	glClearColor(1.0, 1.0, 0.0, 1.0);
+	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	mProgram->bind();
 	QMatrix4x4 projectionMatrix;
@@ -214,8 +274,8 @@ void GLMainView::paintGL()
 	QMatrix4x4 viewMatrix;
 	viewMatrix.translate(0, 0, -1);
 	mProgram->setUniformValue(mMvpUniform, projectionMatrix*viewMatrix);
-	glEnable(GL_ALPHA_TEST);
-	glAlphaFunc(GL_GREATER, 0.05f);
+	/*glEnable(GL_ALPHA_TEST);
+	glAlphaFunc(GL_GREATER, 0.05f);*/
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -243,7 +303,9 @@ void GLMainView::paintGL()
 	}
 	glDisableVertexAttribArray(mTexAttr);
 	glDisableVertexAttribArray(mPosAttr);
-	//glFlush();
+
+	glDisable(GL_BLEND);
+	glFlush();
 	mProgram->release();
 }
 
@@ -259,6 +321,7 @@ void GLMainView::mouseMoveEvent(QMouseEvent * pEvent)
 	mViews[0].updateViewMatrix(rotationAngles);
 	oldX = pEvent->x();
 	oldY = pEvent->y();
+	this->update();
 }
 
 void GLMainView::mousePressEvent(QMouseEvent * pEvent)

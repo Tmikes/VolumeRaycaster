@@ -53,7 +53,7 @@ int intersectBox(Ray r, float3 boxmin, float3 boxmax, float *tnear, float *tfar)
 	float3 tbot = invR * (boxmin - r.o);
 	float3 ttop = invR * (boxmax - r.o);
 
-	// re-order intersections to find smallest and largest on each axis
+	// re-order intersections to find smallest and largest on each aposWorld.xs
 	float3 tmin = fminf(ttop, tbot);
 	float3 tmax = fmaxf(ttop, tbot);
 
@@ -100,7 +100,7 @@ __device__ uint rgbaFloatToInt(float4 rgba)
 }
 
 __global__ void
-d_render(uint *d_output, uint imageW, uint imageH, float density, float transferOffset)
+d_render(uint *d_output, uint imageW, uint imageH, float density, float transferOffset, float3 dim)
 {
 	const int maxSteps = 500;
 	const float tstep = 0.01f;
@@ -112,6 +112,8 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 	uint y = blockIdx.y*blockDim.y + threadIdx.y;
 
 	if ((x >= imageW) || (y >= imageH)) return;
+
+	
 
 	float u = (x / (float)imageW)*2.0f - 1.0f;
 	float v = (y / (float)imageH)*2.0f - 1.0f;
@@ -126,8 +128,10 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 	float tnear, tfar;
 	int hit = intersectBox(eyeRay, boxMin, boxMax, &tnear, &tfar);
 
-	if (!hit) return;
-
+	if (!hit) {
+		d_output[y*imageW + x] = rgbaFloatToInt(make_float4(0,0,0,0));
+			return;
+	}
 	if (tnear < 0.0f) tnear = 0.0f;     // clamp to near plane
 
 										// march along ray from front to back, accumulating color
@@ -135,29 +139,84 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 	float t = tnear;
 	float3 pos = eyeRay.o + eyeRay.d*tnear;
 	float3 step = eyeRay.d*tstep;
+	float3 light = make_float3(1, 1, 1);
+	float3 lightdir = normalize( make_float3(1, 1, 0) );
+	float attenuation = 1.0f;
+	float shininess = 10.0f;
+	float3 specularlight;
+	float diffuseCoeff = 0.5f;
+	float specularCoeff = 0.3f;
+	float ambiantCoeff = 0.2f;
+	float invdot , specPow = 10;
 
 	for (int i = 0; i<maxSteps; i++)
 	{
 		// read from 3D texture
 		// remap position to [0, 1] coordinates
+		float3 posWorld = pos * 0.5f + 0.5f;
 		float sample = tex3D(volumeTex, pos.x*0.5f + 0.5f, pos.y*0.5f + 0.5f, pos.z*0.5f + 0.5f);
 		//sample *= 64.0f;    // scale for 10-bit data
 
 		// lookup in transfer function texture
-		float4 col = tex3D(transferTex, /*sample*/0, 0,0);
+		float4 col = tex3D(transferTex, sample, transferOffset,0);
 		col.w *= density;
+
+
+		float gradx = (tex3D(volumeTex, posWorld.x + 0.5f / dim.x, posWorld.y, posWorld.z) - tex3D(volumeTex, posWorld.x - 0.5f / dim.x, posWorld.y, posWorld.z)) / 2;
+		float gradz = (tex3D(volumeTex, posWorld.x, posWorld.y, posWorld.z + 0.5f / dim.z) - tex3D(volumeTex, posWorld.x, posWorld.y, posWorld.z - 0.5f / dim.z)) / 2;
+		float grady = (tex3D(volumeTex, posWorld.x, posWorld.y + 0.5f / dim.y, posWorld.z) - tex3D(volumeTex, posWorld.x, posWorld.y - 0.5f / dim.y, posWorld.z)) / 2;
+
+		float4 n = make_float4(normalize(make_float3(gradx, grady, gradz)), 1.0f);
+		//n = normalize(n);
+		//n = mul4(c_invViewMatrix, n);
+		float dotprod = lightdir.x * n.x + lightdir.y * n.y + lightdir.z * n.z; // lambertian
+
+		dotprod = max(0.0f, dotprod);
+		dotprod = min(1.0f, dotprod);
+
+		float3 ambianlight = make_float3(col.x, col.y, col.z);
+		float3 diffuselight = dotprod * make_float3(light.x *col.x, light.y *col.y, light.z*col.z);
+
+
+
+		
+		//float3 
+		if (dotprod < 0)
+		{
+			specularlight = make_float3(0, 0, 0);
+		}
+		else {
+			invdot = dot(reflect(-lightdir, make_float3(n.x, n.y, n.z)), eyeRay.d);
+			//specularlight = attenuation* pow(max(0.0f, invdot), shininess)*make_float3(1, 1, 1);
+		}
+
+
+			diffuselight *= diffuseCoeff;
+			specularlight = specularCoeff * pow(max(0.0f, invdot), specPow)*make_float3(1, 1, 1);
+		
+
+		//diffuselight *= col.w;
+			ambianlight *= col.w; //* occlusion;
+						  //specularlight *= col.w;
+		float3 color = ambianlight + diffuselight + specularlight;
+		color.x = fminf(color.x, 1);
+		color.y = fminf(color.y, 1);
+		color.z = fminf(color.z, 1);
+
+
+
 
 		// "under" operator for back-to-front blending
 		//sum = lerp(sum, col, col.w);
 
 		// pre-multiply alpha
-		col.x *= col.w;
-		col.y *= col.w;
-		col.z *= col.w;
+		col.x = color.x * col.w;
+		col.y = color.y * col.w;
+		col.z = color.z * col.w;
 		// "over" operator for front-to-back blending
 		sum = sum + col * (1.0f - sum.w);
 
-		// exit early if opaque
+		// eposWorld.xt early if opaque
 		if (sum.w > opacityThreshold)
 			break;
 
@@ -167,9 +226,8 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 
 		pos += step;
 	}
-
 	// write output color
-	d_output[y*imageW + x] = rgbaFloatToInt(sum);
+	d_output[y*imageW + x] = rgbaFloatToInt( sum );
 }
 
 
@@ -179,31 +237,31 @@ __global__ void addKernel(int *c, const int *a, const int *b)
 	c[i] = a[i] + b[i];
 }
 
-__global__ void updateColors(uchar* colors,  uchar* data, float index, int dimx, int dimy, int dimz, float opacity,float*debug) {
-	int x = blockIdx.x*blockDim.x + threadIdx.x;
-	int y = blockIdx.y*blockDim.y + threadIdx.y;
-	int z = blockIdx.z*blockDim.z + threadIdx.z;
-
-	debug[0] = data[0];
-	if (x < dimx && y < dimy && z <dimz)
-	{
-		debug[1] = data[1];
-		
-		int i = x + y * dimx + z * dimx*dimy;
-		//float density = data[i] / 255.0f;
-		
-		float maxLog = logf(255 + 1);
-		float density = logf(data[i] + 1) / maxLog;
-		debug[2] = data[2];
-		float4 col= tex3D(transferTex, density, index, 0.0f);
-		debug[3] = data[3];
-		colors[i * 4] = (uchar)(col.x * 255);
-		colors[i * 4 + 1] = (uchar)(col.y * 255);
-		colors[i * 4 + 2] = (uchar)(col.z * 255);
-		colors[i * 4 + 3] =  (uchar)(density*opacity *col.w * 255);
-		debug[4] = colors[0];
-	}
-}
+//__global__ void updateColors(uchar* colors,  uchar* data, float index, int dimx, int dimy, int dimz, float opacity,float*debug) {
+//	int x = blockIdx.x*blockDim.x + threadIdx.x;
+//	int y = blockIdx.y*blockDim.y + threadIdx.y;
+//	int z = blockIdx.z*blockDim.z + threadIdx.z;
+//
+//	debug[0] = data[0];
+//	if (x < dimx && y < dimy && z <dimz)
+//	{
+//		debug[1] = data[1];
+//		
+//		int i = x + y * dimx + z * dimx*dimy;
+//		//float density = data[i] / 255.0f;
+//		
+//		float maxLog = logf(255 + 1);
+//		float density = logf(data[i] + 1) / maxLog;
+//		debug[2] = data[2];
+//		float4 col= tex3D(transferTex, density, index, 0.0f);
+//		debug[3] = data[3];
+//		colors[i * 4] = (uchar)(col.x * 255);
+//		colors[i * 4 + 1] = (uchar)(col.y * 255);
+//		colors[i * 4 + 2] = (uchar)(col.z * 255);
+//		colors[i * 4 + 3] =  (uchar)(density*opacity *col.w * 255);
+//		debug[4] = colors[0];
+//	}
+//}
 
 extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int height, int depth)
 {
@@ -228,14 +286,14 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 	volumeTex.filterMode = cudaFilterModeLinear;      // linear interpolation
 	volumeTex.addressMode[0] = cudaAddressModeClamp;  // clamp texture coordinates
 	volumeTex.addressMode[1] = cudaAddressModeClamp;
-	volumeTex.addressMode[2] = cudaAddressModeClamp;
+
 	// Bind the array to the texture
 	cudaBindTextureToArray(volumeTex, d_volumeArray, channelDescVolume);
 
 	//---------------------transfer tex---------------------------------------------------------
 
 	// create transfer function texture
-	float4 transferFunc[27] =
+	float4 transferFunc[] =
 	{
 		//----------		
 			{ 0.0, 0.0, 0.0, 0.0, },
@@ -269,6 +327,18 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 			{ 1.0, 0.0, 0.0, 1.0, },
 	};
 
+
+	//cudaChannelFormatDesc channelDesc2 = cudaCreateChannelDesc<float4>();
+	//checkCudaErrors(cudaMallocArray(&d_transferFuncArray, &channelDesc2, sizeof(transferFunc) / sizeof(float4), 1));
+	//checkCudaErrors(cudaMemcpyToArray(d_transferFuncArray, 0, 0, transferFunc, sizeof(transferFunc), cudaMemcpyHostToDevice));
+
+	//transferTex.filterMode = cudaFilterModeLinear;
+	//transferTex.normalized = true;    // access with normalized texture coordinates
+	//transferTex.addressMode[0] = cudaAddressModeClamp;   // wrap texture coordinates
+
+	//													 // Bind the array to the texture
+	//checkCudaErrors(cudaBindTextureToArray(transferTex, d_transferFuncArray, channelDesc2));
+
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float4>();
 	cudaExtent tf_dim = { 9, 3, 1 };
 	cudaMalloc3DArray(&d_transferFuncArray, &channelDesc, tf_dim);
@@ -285,8 +355,8 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 	transferTex.filterMode = cudaFilterModeLinear;      // linear interpolation
 	transferTex.addressMode[0] = cudaAddressModeClamp;  // clamp texture coordinates
 	transferTex.addressMode[1] = cudaAddressModeClamp;
-	transferTex.addressMode[2] = cudaAddressModeClamp;
-											 // Bind the array to the texture
+
+											  //Bind the array to the texture
 	cudaBindTextureToArray(transferTex, d_transferFuncArray, channelDesc);
 }
 //
@@ -403,9 +473,9 @@ void freeCudaBuffers()
 
 extern "C"
 void render_kernel(dim3 gridSize, dim3 blockSize, unsigned int *d_output, unsigned int imageW, unsigned int imageH,
-	float density, float transferOffset)
+	float density, float transferOffset, float3 dim)
 {
-	d_render <<<gridSize, blockSize >>>(d_output, imageW, imageH, density,  transferOffset);
+	d_render <<<gridSize, blockSize >>>(d_output, imageW, imageH, density,  transferOffset, dim);
 }
 
 extern "C" void copyInvViewMatrix(std::vector<float> pInvViewMatrix)
