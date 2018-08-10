@@ -73,6 +73,9 @@
    <addaction name="actionDeletion"/>
    <addaction name="actionbrush"/>
    <addaction name="actionLens"/>
+   <addaction name="separator"/>
+   <addaction name="actionDensityAdd"/>
+   <addaction name="actionDensityMinus"/>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -98,6 +101,9 @@
     <addaction name="actionDeletion"/>
     <addaction name="actionbrush"/>
     <addaction name="actionLens"/>
+    <addaction name="separator"/>
+    <addaction name="actionDensityAdd"/>
+    <addaction name="actionDensityMinus"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -236,6 +242,26 @@
    </property>
    <property name="text">
     <string>Shading</string>
+   </property>
+  </action>
+  <action name="actionDensityMinus">
+   <property name="icon">
+    <iconset>
+     <normalon>:/VolumeRaycaster/Resources/decrease.png</normalon>
+    </iconset>
+   </property>
+   <property name="text">
+    <string>Density -</string>
+   </property>
+  </action>
+  <action name="actionDensityAdd">
+   <property name="icon">
+    <iconset>
+     <normalon>:/VolumeRaycaster/Resources/contrast.png</normalon>
+    </iconset>
+   </property>
+   <property name="text">
+    <string>Density +</string>
    </property>
   </action>
  </widget>

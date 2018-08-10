@@ -5,7 +5,7 @@
 #include <QMouseEvent>
 #include <memory>
 #include <vector>
-
+#include <algorithm>  
 
 
 class GLMainView : public QOpenGLWidget
@@ -37,7 +37,7 @@ private:
 	GLuint mTexUniform;
 
 	float mTF_offset;
-
+	const float mDensityDelta = 0.01f;
 	std::vector<GLfloat> mVertsData;
 	std::vector<GLfloat> mTexData;
 	std::vector<GLushort> mIndicesData;
@@ -56,6 +56,8 @@ protected:
 
 public:
 	void setTF_offset(float pOffset);
+	void increaseDensity();
+	void decreaseDensity();
 	void updateViews();
 	void resetViewer();
 	explicit GLMainView(QWidget *pParent = 0);

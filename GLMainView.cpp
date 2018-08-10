@@ -70,6 +70,18 @@ void GLMainView::setTF_offset(float pOffset)
 	update();
 }
 
+void GLMainView::increaseDensity()
+{
+	mDensity += mDensityDelta;
+	update();
+}
+
+void GLMainView::decreaseDensity()
+{
+	mDensity = std::max(0.0f, mDensity - mDensityDelta);
+	update();
+}
+
 void GLMainView::updateViews()
 {
 	for (std::vector<Square>::iterator v = mViews.begin(); v != mViews.end(); v++)
@@ -124,9 +136,9 @@ void GLMainView::raycast(Square& pView)
 	//glBindTexture(GL_TEXTURE_2D, 0);
 
 
-	cudaError t = cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, pView.pbo(), cudaGraphicsMapFlagsWriteDiscard);
+	/*cudaError t = cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, pView.pbo(), cudaGraphicsMapFlagsWriteDiscard);
 	checkCudaErrors(t);
-
+*/
 	
 
 	copyInvViewMatrix(pView.viewMatrix());
@@ -136,14 +148,14 @@ void GLMainView::raycast(Square& pView)
 	uint *d_output;
 	
 	// map PBO to get CUDA device pointer
-	cudaError err =  cudaGraphicsMapResources(1, &(cuda_pbo_resource), 0);
+	cudaError err =  cudaGraphicsMapResources(1, &( pView.cuda_pbo_resource), 0);
 	checkCudaErrors(err);
 //	checkCudaErrors(cudaGraphicsMapResources(1, &(pView.cuda_pbo_resource), 0));
 
 
 	int a = 1 + 5;
 	size_t num_bytes;
-	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes, cuda_pbo_resource));
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes, pView.cuda_pbo_resource));
 	//printf("CUDA mapped PBO: May access %ld bytes\n", num_bytes);
 
 	// clear image
@@ -158,7 +170,7 @@ void GLMainView::raycast(Square& pView)
 
 	
 
-	checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
+	checkCudaErrors(cudaGraphicsUnmapResources(1, &pView.cuda_pbo_resource, 0));
 	//glMatrixMode(GL_MODELVIEW);
 	//glLoadIdentity();
 	////GL.Color3(Color.White);

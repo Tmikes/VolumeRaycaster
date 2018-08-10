@@ -16,5 +16,6 @@ private:
 private slots:
 	void on_actionOpen_triggered();
 	void on_tfSlider_valueChanged(int pValue);
-
+	void on_actionDensityMinus_triggered();
+	void on_actionDensityAdd_triggered();
 };

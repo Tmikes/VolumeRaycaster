@@ -8,6 +8,10 @@ VolumeRaycaster::VolumeRaycaster(QWidget *parent)
 	ui.setupUi(this);
 	connect(ui.actionOpen, SIGNAL(ui.actionOpen->triggered),
 		this, SLOT(on_actionOpen_triggered));
+	connect(ui.actionDensityAdd, SIGNAL(ui.actionDensityAdd->triggered),
+		this, SLOT(on_actionDensityAdd_triggered));
+	connect(ui.actionDensityMinus, SIGNAL(ui.actionDensityMinus->triggered),
+		this, SLOT(on_actionDensityMinus_triggered));
 	connect(ui.tfSlider, SIGNAL(ui.tfSlider->valueChanged),
 		this, SLOT(on_tfSlider_valueChanged));
 }
@@ -43,4 +47,14 @@ void VolumeRaycaster::on_tfSlider_valueChanged(int pValue)
 {
 	float min = ui.tfSlider->minimum(), max = ui.tfSlider->maximum();
 	ui.openGLWidget->setTF_offset((pValue - min) / (max - min));
+}
+
+void VolumeRaycaster::on_actionDensityMinus_triggered()
+{
+	ui.openGLWidget->decreaseDensity();
+}
+
+void VolumeRaycaster::on_actionDensityAdd_triggered()
+{
+	ui.openGLWidget->increaseDensity();
 }
