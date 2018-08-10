@@ -329,11 +329,15 @@ void GLMainView::resizeGL(int pW, int pH) {
 int oldX, oldY;
 void GLMainView::mouseMoveEvent(QMouseEvent * pEvent)
 {
-	QVector2D rotationAngles(pEvent->x() - oldX, pEvent->y() - oldY);
-	mViews[0].updateViewMatrix(rotationAngles);
-	oldX = pEvent->x();
-	oldY = pEvent->y();
-	this->update();
+	if(pEvent->buttons() & Qt::LeftButton) {
+		QVector2D rotationAngles(pEvent->x() - oldX, pEvent->y() - oldY);
+		mViews[0].updateViewMatrix(rotationAngles);
+		oldX = pEvent->x();
+		oldY = pEvent->y();
+		this->update();
+	}
+
+	
 }
 
 void GLMainView::mousePressEvent(QMouseEvent * pEvent)

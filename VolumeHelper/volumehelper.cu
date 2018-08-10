@@ -140,7 +140,8 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 	float3 pos = eyeRay.o + eyeRay.d*tnear;
 	float3 step = eyeRay.d*tstep;
 	float3 light = make_float3(1, 1, 1);
-	float3 lightdir = normalize( make_float3(1, 1, 0) );
+	float3 lightdir = mul(c_invViewMatrix, normalize(make_float3(1, 1, 0)) ) ;
+
 	float attenuation = 1.0f;
 	float shininess = 10.0f;
 	float3 specularlight;

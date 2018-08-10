@@ -1,5 +1,7 @@
 #include "Square.h"
+#include <qmatrix.h>
 
+QQuaternion rotations;
 Square::Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth, float pTexHeight, bool pVisible )
 {
 	mWidth = pWidth;
@@ -34,8 +36,8 @@ Square::Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth,
 
 	
 
-	//cudaError t = cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, mPbo, cudaGraphicsMapFlagsWriteDiscard);
-	//checkCudaErrors(t);
+	cudaError t = cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, mPbo, cudaGraphicsMapFlagsWriteDiscard);
+	checkCudaErrors(t);
 	
 	mTexWidth = pTexWidth;
 	mTexHeight = pTexHeight;
@@ -62,15 +64,29 @@ std::vector<GLushort> Square::indices(GLuint pOffset )
 
 void Square::updateViewMatrix(QVector2D pAngles)
 {
-	QMatrix4x4 rotX, rotY;
-	rotX.rotate(pAngles.x(), QVector3D(1, 0, 0));
-	rotY.rotate(pAngles.y(), QVector3D(0, 1, 0));
-	mViewMatrix = rotX * mViewMatrix;
-	mViewMatrix = rotY * mViewMatrix;
+	
+	QMatrix4x4 rotX;// rotXa fromAxisAndAngle(rotations.toRotationMatrix() * QVector3D(1, 0, 0), pAngles.x());
+	QMatrix4x4 rotY;// = QQuaternion::fromAxisAndAngle(QVector3D(0, 1, 0), pAngles.y());
+
+	//rotations = Q * rotations;
+	//rotations.normalize();
+	//rotations = rotations * QQuaternion::fromAxisAndAngle(QVector3D(0, 1, 0), pAngles.y()).normalized();
+	//rotations.normalize();
+	mViewMatrix.translate(-mTranslation);
+	mViewMatrix.rotate(-pAngles.x(), QVector3D(0, 1, 0));
+	mViewMatrix.rotate(-pAngles.y(), QVector3D(1, 0, 0));
+	mViewMatrix.translate(mTranslation);
+	//mViewMatrix = rotX * mViewMatrix;
+	//mViewMatrix = rotY * mViewMatrix;
 }
 
 std::vector<float> Square::viewMatrix()
 {
+	/*QMatrix4x4 tmp;
+	tmp.translate(mTranslation);
+	QMatrix4x4 rot;
+	rot.rotate(rotations);
+	mViewMatrix =  rot * tmp;*/
 	float* data = mViewMatrix.data();
 	return { 
 				data[0],data[4],data[8],data[12],
