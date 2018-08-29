@@ -155,13 +155,12 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 		// read from 3D texture
 		// remap position to [0, 1] coordinates
 		float3 posWorld = pos * 0.5f + 0.5f;
-		float sample = tex3D(volumeTex, pos.x*0.5f + 0.5f, pos.y*0.5f + 0.5f, pos.z*0.5f + 0.5f);
+		float sample = tex3D(volumeTex, posWorld.x, posWorld.y, posWorld.z);
 		//sample *= 64.0f;    // scale for 10-bit data
 
 		// lookup in transfer function texture
 		float4 col = tex3D(transferTex, sample, transferOffset,0);
 		col.w *= density;
-
 
 		float gradx = (tex3D(volumeTex, posWorld.x + 0.5f / dim.x, posWorld.y, posWorld.z) - tex3D(volumeTex, posWorld.x - 0.5f / dim.x, posWorld.y, posWorld.z)) / 2;
 		float gradz = (tex3D(volumeTex, posWorld.x, posWorld.y, posWorld.z + 0.5f / dim.z) - tex3D(volumeTex, posWorld.x, posWorld.y, posWorld.z - 0.5f / dim.z)) / 2;
@@ -178,9 +177,6 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 		float3 ambianlight = make_float3(col.x, col.y, col.z);
 		float3 diffuselight = dotprod * make_float3(light.x *col.x, light.y *col.y, light.z*col.z);
 
-
-
-		
 		//float3 
 		if (dotprod < 0)
 		{
@@ -190,7 +186,6 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 			invdot = dot(reflect(-lightdir, make_float3(n.x, n.y, n.z)), eyeRay.d);
 			//specularlight = attenuation* pow(max(0.0f, invdot), shininess)*make_float3(1, 1, 1);
 		}
-
 
 			diffuselight *= diffuseCoeff;
 			specularlight = specularCoeff * pow(max(0.0f, invdot), specPow)*make_float3(1, 1, 1);
@@ -237,32 +232,114 @@ __global__ void addKernel(int *c, const int *a, const int *b)
 	int i = threadIdx.x;
 	c[i] = a[i] + b[i];
 }
+__global__ void blur( float* source, float *output,  int dimx, int dimy, int dimz, int r)
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+	int z = blockIdx.z*blockDim.z + threadIdx.z;
+	int l = 2 * r + 1;
+	if (x < dimx && y < dimy && z < dimz)
+	{
+		float kerneltotal = 0;
+		int i = 0;
+		if (source[x + dimx * y + dimx * dimy*z] != 0)
+		{
+			for (int xi = x - r, xii = 0; xi <= x + r; xi++, xii++)
+			{
+				for (int yi = y - r, yii = 0; yi <= y + r; yi++, yii++)
+				{
+					for (int zi = z - r, zii = 0; zi <= z + r; zi++, zii++)
+					{
+						if (xi >= 0 && xi < dimx && yi >= 0 && yi < dimy && zi >= 0 && zi < dimz)
+						{
+							//float source = 
+							output[x + dimx * y + dimx * dimy*z] += (source[xi + dimx*yi  +  dimx*dimy*zi])/((2*r+1)*(2*r+1)*(2*r+1));
+							//output[x + dimx * y + dimx * dimy*z] += kernel[i] * source[xi + dimx * yi + dimx * dimy*zi];
+							//kerneltotal += kernel[i];
 
-//__global__ void updateColors(uchar* colors,  uchar* data, float index, int dimx, int dimy, int dimz, float opacity,float*debug) {
-//	int x = blockIdx.x*blockDim.x + threadIdx.x;
-//	int y = blockIdx.y*blockDim.y + threadIdx.y;
-//	int z = blockIdx.z*blockDim.z + threadIdx.z;
-//
-//	debug[0] = data[0];
-//	if (x < dimx && y < dimy && z <dimz)
-//	{
-//		debug[1] = data[1];
-//		
-//		int i = x + y * dimx + z * dimx*dimy;
-//		//float density = data[i] / 255.0f;
-//		
-//		float maxLog = logf(255 + 1);
-//		float density = logf(data[i] + 1) / maxLog;
-//		debug[2] = data[2];
-//		float4 col= tex3D(transferTex, density, index, 0.0f);
-//		debug[3] = data[3];
-//		colors[i * 4] = (uchar)(col.x * 255);
-//		colors[i * 4 + 1] = (uchar)(col.y * 255);
-//		colors[i * 4 + 2] = (uchar)(col.z * 255);
-//		colors[i * 4 + 3] =  (uchar)(density*opacity *col.w * 255);
-//		debug[4] = colors[0];
-//	}
-//}
+						}
+						i++;
+					}
+				}
+			}
+			if (kerneltotal != 0)
+			{
+				//  output[x + dimx*y + dimx*dimy*z] /= kerneltotal;
+			}
+		}
+	}
+}
+int iDivUp(int a, int b)
+{
+	return (a % b != 0) ? (a / b + 1) : (a / b);
+}
+
+extern "C" void blurData(std::vector<float> pInput, std::vector<float>& pOutput, int pDimx, int  pDimy, int pDimz, int pRadius) {
+	float *dev_input = 0;
+	float *dev_output = 0;
+	int size = dimx * dimy*dimz;
+	cudaError_t cudaStatus;
+
+	// Choose which GPU to run on, change this on a multi-GPU system.
+	cudaStatus = cudaSetDevice(0);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+		goto Error;
+	}
+
+	// Allocate GPU buffers for three vectors (two input, one output)    .
+	cudaStatus = cudaMalloc((void**)&dev_input, size * sizeof(float));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed!");
+		goto Error;
+	}
+
+	cudaStatus = cudaMalloc((void**)&dev_output, size * sizeof(float));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed!");
+		goto Error;
+	}
+
+	// Copy input vectors from host memory to GPU buffers.
+	cudaStatus = cudaMemcpy(dev_input, pInput.data(), size * sizeof(float), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMemcpy failed!");
+		goto Error;
+	}
+
+	dim3 blockSize(8,8,1);
+	dim3 gridSize(iDivUp(dimx, blockSize.x), iDivUp(dimy, blockSize.y), iDivUp(dimz, blockSize.z));
+
+	// Launch a kernel on the GPU with one thread for each element.
+	blur <<< gridSize, blockSize >>> ( dev_input, dev_output, pDimx, pDimy, pDimz, pRadius);
+
+	// Check for any errors launching the kernel
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+		goto Error;
+	}
+
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	// any errors encountered during the launch.
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+		goto Error;
+	}
+
+	// Copy output vector from GPU buffer to host memory.
+	cudaStatus = cudaMemcpy(pOutput.data(), dev_output, size * sizeof(float), cudaMemcpyDeviceToHost);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMemcpy failed!");
+		goto Error;
+	}
+
+Error:
+	cudaFree(dev_output);
+	cudaFree(dev_input);
+	
+}
 
 extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int height, int depth)
 {
@@ -287,6 +364,7 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 	volumeTex.filterMode = cudaFilterModeLinear;      // linear interpolation
 	volumeTex.addressMode[0] = cudaAddressModeClamp;  // clamp texture coordinates
 	volumeTex.addressMode[1] = cudaAddressModeClamp;
+	//volumeTex.addressMode[2] = cudaAddressModeClamp;
 
 	// Bind the array to the texture
 	cudaBindTextureToArray(volumeTex, d_volumeArray, channelDescVolume);

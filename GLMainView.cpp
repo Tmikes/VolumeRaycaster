@@ -2,11 +2,13 @@
 #include "volumehelper.h"
 #include "GLMainView.h"
 #include <fstream>
+#include <algorithm>
+#include <execution>
 
 
 GLdouble AspectRatio;
 QVector3D eye(0.5, 0.5, -2), target(0.5, 0.5, 0.5), up(0, 1, 0);
-int iDivUp(int a, int b)
+int myDivUp(int a, int b)
 {
 	return (a % b != 0) ? (a / b + 1) : (a / b);
 }
@@ -143,7 +145,7 @@ void GLMainView::raycast(Square& pView)
 
 	copyInvViewMatrix(pView.viewMatrix());
 	dim3 blockSize(8,8,1);
-	dim3 gridSize(iDivUp(pView.texWidth(), blockSize.x), iDivUp(pView.texHeight(), blockSize.y));
+	dim3 gridSize(myDivUp(pView.texWidth(), blockSize.x), myDivUp(pView.texHeight(), blockSize.y));
 	// map PBO to get CUDA device pointer
 	uint *d_output;
 	
@@ -213,17 +215,46 @@ GLMainView::~GLMainView()
 
 }
 
-void GLMainView::setData(std::vector<unsigned char> pData, int pDimx, int pDimy, int pDimz)
+void GLMainView::setData(std::vector<float> pDataraw, int pDimx, int pDimy, int pDimz,
+	float pRatiox , float pRatioy, float pRatioz, float minV, float maxV)
 {
-	mData = pData;
+	
 	mDimx = pDimx;
 	mDimy = pDimy;
 	mDimz = pDimz;
+
+	mData_raw = pDataraw;
+	mData_raw = scaleVolume(mDimx, mDimy, mDimz, pDataraw, minV, maxV);
+	//blurData(mData_raw, mData_raw,mDimx, mDimy, mDimz,3);
+
+	std::vector<byte> tmp(mData_raw.begin(), mData_raw.end());
+	mData = tmp;
 	initCuda(mData, mDimx, mDimy, mDimz);
 	mLoaded = true;
 }
 
 
+std::vector<float> scaleVolume(int dimx, int dimy, int dimz, std::vector<float> voxels, float minV, float maxV)
+{
+	std::for_each(std::execution::par_unseq, voxels.begin(), voxels.end(), [minV,maxV](float& item)
+	{
+		//do stuff with item
+		double scaleV = GenericScaleDouble(item, minV, 0, maxV, 255);
+		if (scaleV < 0)
+		{
+			scaleV = 0;
+		}
+		item = round(scaleV);
+	});
+	return voxels;
+}
+
+double GenericScaleDouble(double input, double i1, double o1, double i2, double o2)
+{
+	if (i2 == i1) return (o1 + o2) / 2.0; //Arbitrary choice, but wrong!!!
+
+	return (input - i1) * (o2 - o1) / (i2 - i1) + o1;
+}
 
 std::vector<unsigned char> GLMainView::data()
 {

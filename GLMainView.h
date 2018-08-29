@@ -41,6 +41,7 @@ private:
 	std::vector<GLfloat> mVertsData;
 	std::vector<GLfloat> mTexData;
 	std::vector<GLushort> mIndicesData;
+	std::vector<float> mData_raw;
 	void genFlag(Square& pTexture, QVector3D pCol1, QVector3D pCol2, QVector3D pCol3);
 	void raycast(Square& pView);
 	bool mTwoViews;
@@ -69,7 +70,10 @@ public:
 	std::vector<unsigned char> data();
 	
 	//setters
-	void setData(std::vector<unsigned char> pData, int pDimx, int pDimy, int pDimz);
+	void setData(std::vector<float> pDataraw, int pDimx, int pDimy, int pDimz, float pRatiox, float pRatioy, float pRatioz, float minV, float maxV);
 
 };
 
+std::vector<float> scaleVolume(int dimx, int dimy, int dimz, std::vector<float> voxels, float minV, float maxV);
+double GenericScaleDouble(double input, double i1, double o1, double i2, double o2);
+int myDivUp(int a, int b);
