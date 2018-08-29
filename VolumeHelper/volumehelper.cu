@@ -25,6 +25,7 @@ int dimz = 0;
 
 texture<uchar, cudaTextureType3D, cudaReadModeNormalizedFloat> volumeTex;
 texture<float4, cudaTextureType3D, cudaReadModeElementType> transferTex;
+surface<void, cudaSurfaceType3D> volumeSurf;
 //cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
 
 
@@ -97,6 +98,24 @@ __device__ uint rgbaFloatToInt(float4 rgba)
 	rgba.z = __saturatef(rgba.z);
 	rgba.w = __saturatef(rgba.w);
 	return (uint(rgba.w * 255) << 24) | (uint(rgba.z * 255) << 16) | (uint(rgba.y * 255) << 8) | uint(rgba.x * 255);
+}
+
+__global__ void logScaleData(uchar* input, int withLog, int dimx, int dimy, int dimz) {
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+	int z = blockIdx.z*blockDim.z + threadIdx.z;
+	if (x < dimx && y < dimy && z < dimz) {
+		float max = 255;
+		uchar dens = input[x + y * dimx + z * dimx*dimy];
+		if (withLog)
+		{
+			float result = (float)dens;
+			float maxLog = log(max + 1);
+			result = round(255 * (log(result + 1) / maxLog));
+			dens = (uchar)result;
+		}
+		surf3Dwrite(dens, volumeSurf, x * sizeof(uchar), y, z, cudaBoundaryModeClamp);
+	}
 }
 
 __global__ void
@@ -274,6 +293,56 @@ int iDivUp(int a, int b)
 	return (a % b != 0) ? (a / b + 1) : (a / b);
 }
 
+extern "C" void logScale( std::vector<unsigned char> pInput,  bool pWithLog ) {
+	unsigned char *dev_input = 0;
+	int size = dimx * dimy*dimz;
+	cudaError_t cudaStatus;
+
+	// Choose which GPU to run on, change this on a multi-GPU system.
+	cudaStatus = cudaSetDevice(0);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+		goto Error;
+	}
+	// Allocate GPU buffers for three vectors (two input, one output)    .
+	cudaStatus = cudaMalloc((void**)&dev_input, size * sizeof(unsigned char));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed!");
+		goto Error;
+	}
+
+	// Copy input vectors from host memory to GPU buffers.
+	cudaStatus = cudaMemcpy(dev_input, pInput.data(), size * sizeof(unsigned char), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMemcpy failed!");
+		goto Error;
+	}
+
+	dim3 blockSize(8, 8, 1);
+	dim3 gridSize(iDivUp(dimx, blockSize.x), iDivUp(dimy, blockSize.y), iDivUp(dimz, blockSize.z));
+
+	// Launch a kernel on the GPU with one thread for each element.
+	logScaleData <<< gridSize, blockSize >>> (dev_input, pWithLog ?1:0, dimx ,dimy ,dimz);
+
+	// Check for any errors launching the kernel
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+		goto Error;
+	}
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	// any errors encountered during the launch.
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+		goto Error;
+	}
+
+Error:
+	cudaFree(dev_input);
+
+}
+
 extern "C" void blurData(std::vector<float> pInput, std::vector<float>& pOutput, int pDimx, int  pDimy, int pDimz, int pRadius) {
 	float *dev_input = 0;
 	float *dev_output = 0;
@@ -350,7 +419,7 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 	//create 3D global texture
 	cudaChannelFormatDesc channelDescVolume = cudaCreateChannelDesc<unsigned char>();
 	cudaExtent vol_dim = { dimx, dimy, dimz };
-	cudaMalloc3DArray(&d_volumeArray, &channelDescVolume, vol_dim);
+	cudaMalloc3DArray(&d_volumeArray, &channelDescVolume, vol_dim, cudaArraySurfaceLoadStore);
 	// copy data to 3D array
 	cudaMemcpy3DParms copyParamsVol = { 0 };
 	copyParamsVol.srcPtr = make_cudaPitchedPtr(h_volume.data(), vol_dim.width * sizeof(unsigned char), vol_dim.width, vol_dim.height);
@@ -368,7 +437,7 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 
 	// Bind the array to the texture
 	cudaBindTextureToArray(volumeTex, d_volumeArray, channelDescVolume);
-
+	checkCudaErrors(cudaBindSurfaceToArray(volumeSurf, d_volumeArray));
 	//---------------------transfer tex---------------------------------------------------------
 
 	// create transfer function texture

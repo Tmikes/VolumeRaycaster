@@ -17,6 +17,24 @@ VolumeRaycaster::VolumeRaycaster(QWidget *parent)
 		this, SLOT(on_actionDensityMinus_triggered));
 	connect(ui.tfSlider, SIGNAL(ui.tfSlider->valueChanged),
 		this, SLOT(on_tfSlider_valueChanged));
+	connect(ui.actionLogScale, SIGNAL(ui.actionLogScale->triggered),
+		this, SLOT(on_actionLogScale_triggered));
+	
+	
+}
+
+void VolumeRaycaster::resizeEvent(QResizeEvent* event) {
+	QMainWindow::resizeEvent(event);
+	QSize old = event->oldSize() ; 
+	if (old.height() != -1 )
+	{
+		QSize delta = event->size() - old;
+		ui.openGLWidget->resize(ui.openGLWidget->size() + delta);
+		ui.tfSlider->resize(ui.tfSlider->width() + delta.width(), ui.tfSlider->height());
+		ui.tfSlider->move(QPoint(0, ui.tfSlider->pos().y() + delta.height()));
+		
+	}
+	
 }
 
 void VolumeRaycaster::on_actionOpen_triggered() {
@@ -307,4 +325,9 @@ void VolumeRaycaster::on_actionDensityMinus_triggered()
 void VolumeRaycaster::on_actionDensityAdd_triggered()
 {
 	ui.openGLWidget->increaseDensity();
+}
+
+void VolumeRaycaster::on_actionLogScale_triggered()
+{
+	ui.openGLWidget->setLogScale(ui.actionLogScale->isChecked());
 }

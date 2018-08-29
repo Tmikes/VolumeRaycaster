@@ -20,6 +20,8 @@ private:
 	int mDimz;
 	int mWidth;
 	int mHeight;
+	float mMinV;
+	float mMaxV;
 	float mTransferOffset = 0;
 	float mDensity = 0;
 	std::vector<Square> mViews;
@@ -61,6 +63,7 @@ public:
 	void decreaseDensity();
 	void updateViews();
 	void resetViewer();
+	void setLogScale(bool logScale);
 	explicit GLMainView(QWidget *pParent = 0);
 	~GLMainView();	
 	

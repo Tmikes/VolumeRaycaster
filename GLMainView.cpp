@@ -107,6 +107,17 @@ void GLMainView::resetViewer() {
 
 }
 
+void GLMainView::setLogScale(bool withLogScale)
+{
+	std::vector<float> raw =  scaleVolume(mDimx, mDimy, mDimz, mData_raw, mMinV, mMaxV);
+	//blurData(mData_raw, mData_raw,mDimx, mDimy, mDimz,3);
+
+	std::vector<byte> tmp(raw.begin(), raw.end());
+	mData = tmp;
+	logScale(mData, withLogScale);
+	update();
+}
+
 
 void GLMainView::raycast(Square& pView)
 {
@@ -222,7 +233,8 @@ void GLMainView::setData(std::vector<float> pDataraw, int pDimx, int pDimy, int 
 	mDimx = pDimx;
 	mDimy = pDimy;
 	mDimz = pDimz;
-
+	mMinV = minV;
+	mMaxV = maxV;
 	mData_raw = pDataraw;
 	mData_raw = scaleVolume(mDimx, mDimy, mDimz, pDataraw, minV, maxV);
 	//blurData(mData_raw, mData_raw,mDimx, mDimy, mDimz,3);

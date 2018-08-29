@@ -15,9 +15,11 @@ private:
 
 private slots:
 	void on_actionOpen_triggered();
+	void resizeEvent(QResizeEvent * event);
 	void on_tfSlider_valueChanged(int pValue);
 	void on_actionDensityMinus_triggered();
 	void on_actionDensityAdd_triggered();
+	void on_actionLogScale_triggered();
 };
 
 void read_binary_data(QByteArray &data, int dimx, int dimy, int dimz, int bytes, int &count, int maxItem,
