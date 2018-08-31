@@ -236,10 +236,10 @@ void GLMainView::setData(std::vector<float> pDataraw, int pDimx, int pDimy, int 
 	mMinV = minV;
 	mMaxV = maxV;
 	mData_raw = pDataraw;
-	mData_raw = scaleVolume(mDimx, mDimy, mDimz, pDataraw, minV, maxV);
-	//blurData(mData_raw, mData_raw,mDimx, mDimy, mDimz,3);
+	pDataraw = scaleVolume(mDimx, mDimy, mDimz, pDataraw, minV, maxV);
+	blurData(pDataraw, pDataraw,mDimx, mDimy, mDimz,3);
 
-	std::vector<byte> tmp(mData_raw.begin(), mData_raw.end());
+	std::vector<byte> tmp(pDataraw.begin(), pDataraw.end());
 	mData = tmp;
 	initCuda(mData, mDimx, mDimy, mDimz);
 	mLoaded = true;

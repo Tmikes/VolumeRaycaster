@@ -121,8 +121,8 @@ __global__ void logScaleData(uchar* input, int withLog, int dimx, int dimy, int 
 __global__ void
 d_render(uint *d_output, uint imageW, uint imageH, float density, float transferOffset, float3 dim)
 {
-	const int maxSteps = 500;
-	const float tstep = 0.01f;
+	const int maxSteps = 2000;
+	const float tstep = 0.003f;
 	const float opacityThreshold = 0.95f;
 	const float3 boxMin = make_float3(-1.0f, -1.0f, -1.0f);
 	const float3 boxMax = make_float3(1.0f, 1.0f, 1.0f);
@@ -346,7 +346,7 @@ Error:
 extern "C" void blurData(std::vector<float> pInput, std::vector<float>& pOutput, int pDimx, int  pDimy, int pDimz, int pRadius) {
 	float *dev_input = 0;
 	float *dev_output = 0;
-	int size = dimx * dimy*dimz;
+	int size = pDimx * pDimy*pDimz;
 	cudaError_t cudaStatus;
 
 	// Choose which GPU to run on, change this on a multi-GPU system.
@@ -377,7 +377,7 @@ extern "C" void blurData(std::vector<float> pInput, std::vector<float>& pOutput,
 	}
 
 	dim3 blockSize(8,8,1);
-	dim3 gridSize(iDivUp(dimx, blockSize.x), iDivUp(dimy, blockSize.y), iDivUp(dimz, blockSize.z));
+	dim3 gridSize(iDivUp(pDimx, blockSize.x), iDivUp(pDimy, blockSize.y), iDivUp(pDimz, blockSize.z));
 
 	// Launch a kernel on the GPU with one thread for each element.
 	blur <<< gridSize, blockSize >>> ( dev_input, dev_output, pDimx, pDimy, pDimz, pRadius);
