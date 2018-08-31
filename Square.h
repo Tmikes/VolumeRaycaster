@@ -31,10 +31,10 @@ private :
 	GLuint mPbo;
 	bool mVisible;
 	QMatrix4x4 mViewMatrix;
-	
+	QVector3D mCenter;
 public:
 
-	Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth, float pTexHeight, bool pVisible = true);
+	Square(float pX, float pY, float pWidth, float pHeight, float pTexWidth, float pTexHeight, QVector3D pTranslation, bool pVisible = true);
 	std::vector<GLfloat> vertices();
 	std::vector<GLfloat> texcoords();
 	std::vector<GLushort> indices(GLuint pOffset = 0);
@@ -49,6 +49,7 @@ public:
 	float width();
 	float texWidth();
 	float texHeight();
+	void zoom(float pDelta);
 	~Square();
 };
 

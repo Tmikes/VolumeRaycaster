@@ -19,9 +19,8 @@ typedef unsigned char uchar;
 cudaArray *d_volumeArray;
 cudaArray *d_transferFuncArray;
 int size = 0;
-int dimx = 0;
-int dimy = 0;
-int dimz = 0;
+int3 dim = { 0,0,0 };
+
 
 texture<uchar, cudaTextureType3D, cudaReadModeNormalizedFloat> volumeTex;
 texture<float4, cudaTextureType3D, cudaReadModeElementType> transferTex;
@@ -91,22 +90,22 @@ float4 mul(const float3x4 &M, const float4 &v)
 	return r;
 }
 
-__device__ uint rgbaFloatToInt(float4 rgba)
+__device__ uint rgbaFloatToInt(float4 pRgba)
 {
-	rgba.x = __saturatef(rgba.x);   // clamp to [0.0, 1.0]
-	rgba.y = __saturatef(rgba.y);
-	rgba.z = __saturatef(rgba.z);
-	rgba.w = __saturatef(rgba.w);
-	return (uint(rgba.w * 255) << 24) | (uint(rgba.z * 255) << 16) | (uint(rgba.y * 255) << 8) | uint(rgba.x * 255);
+	pRgba.x = __saturatef(pRgba.x);   // clamp to [0.0, 1.0]
+	pRgba.y = __saturatef(pRgba.y);
+	pRgba.z = __saturatef(pRgba.z);
+	pRgba.w = __saturatef(pRgba.w);
+	return (uint(pRgba.w * 255) << 24) | (uint(pRgba.z * 255) << 16) | (uint(pRgba.y * 255) << 8) | uint(pRgba.x * 255);
 }
 
-__global__ void logScaleData(uchar* input, int withLog, int dimx, int dimy, int dimz) {
+__global__ void logScaleData(uchar* pIinput, int withLog, int3 pDim) {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
 	int z = blockIdx.z*blockDim.z + threadIdx.z;
-	if (x < dimx && y < dimy && z < dimz) {
+	if (x < pDim.x && y < pDim.y && z < pDim.z) {
 		float max = 255;
-		uchar dens = input[x + y * dimx + z * dimx*dimy];
+		uchar dens = pIinput[x + y * pDim.x + z * pDim.x*pDim.y];
 		if (withLog)
 		{
 			float result = (float)dens;
@@ -119,13 +118,13 @@ __global__ void logScaleData(uchar* input, int withLog, int dimx, int dimy, int 
 }
 
 __global__ void
-d_render(uint *d_output, uint imageW, uint imageH, float density, float transferOffset, float3 dim)
+d_render(uint *d_output, uint imageW, uint imageH, float density, float transferOffset, float3 dim, float3 ratio)
 {
 	const int maxSteps = 2000;
 	const float tstep = 0.003f;
 	const float opacityThreshold = 0.95f;
-	const float3 boxMin = make_float3(-1.0f, -1.0f, -1.0f);
-	const float3 boxMax = make_float3(1.0f, 1.0f, 1.0f);
+	const float3 boxMin = {-1,-1,-1};// -ratio;
+	const float3 boxMax = { 1,1,1 };//ratio;
 
 	uint x = blockIdx.x*blockDim.x + threadIdx.x;
 	uint y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -173,7 +172,7 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 	{
 		// read from 3D texture
 		// remap position to [0, 1] coordinates
-		float3 posWorld = pos * 0.5f + 0.5f;
+		float3 posWorld = (0.5f*pos + 0.5f)/ratio;
 		float sample = tex3D(volumeTex, posWorld.x, posWorld.y, posWorld.z);
 		//sample *= 64.0f;    // scale for 10-bit data
 
@@ -251,17 +250,17 @@ __global__ void addKernel(int *c, const int *a, const int *b)
 	int i = threadIdx.x;
 	c[i] = a[i] + b[i];
 }
-__global__ void blur( float* source, float *output,  int dimx, int dimy, int dimz, int r)
+__global__ void blur( float* source, float *output,  int3 pDim, int r)
 {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
 	int z = blockIdx.z*blockDim.z + threadIdx.z;
 	int l = 2 * r + 1;
-	if (x < dimx && y < dimy && z < dimz)
+	if (x < pDim.x && y < pDim.y && z < pDim.z)
 	{
 		float kerneltotal = 0;
 		int i = 0;
-		if (source[x + dimx * y + dimx * dimy*z] != 0)
+		if (source[x + pDim.x * y + pDim.x * pDim.y*z] != 0)
 		{
 			for (int xi = x - r, xii = 0; xi <= x + r; xi++, xii++)
 			{
@@ -269,10 +268,10 @@ __global__ void blur( float* source, float *output,  int dimx, int dimy, int dim
 				{
 					for (int zi = z - r, zii = 0; zi <= z + r; zi++, zii++)
 					{
-						if (xi >= 0 && xi < dimx && yi >= 0 && yi < dimy && zi >= 0 && zi < dimz)
+						if (xi >= 0 && xi < pDim.x && yi >= 0 && yi < pDim.y && zi >= 0 && zi < pDim.z)
 						{
 							//float source = 
-							output[x + dimx * y + dimx * dimy*z] += (source[xi + dimx*yi  +  dimx*dimy*zi])/((2*r+1)*(2*r+1)*(2*r+1));
+							output[x + pDim.x * y + pDim.x * pDim.y*z] += (source[xi + pDim.x*yi  + pDim.x*pDim.y*zi])/((2*r+1)*(2*r+1)*(2*r+1));
 							//output[x + dimx * y + dimx * dimy*z] += kernel[i] * source[xi + dimx * yi + dimx * dimy*zi];
 							//kerneltotal += kernel[i];
 
@@ -295,7 +294,7 @@ int iDivUp(int a, int b)
 
 extern "C" void logScale( std::vector<unsigned char> pInput,  bool pWithLog ) {
 	unsigned char *dev_input = 0;
-	int size = dimx * dimy*dimz;
+	int size = dim.x * dim.y*dim.z;
 	cudaError_t cudaStatus;
 
 	// Choose which GPU to run on, change this on a multi-GPU system.
@@ -319,10 +318,10 @@ extern "C" void logScale( std::vector<unsigned char> pInput,  bool pWithLog ) {
 	}
 
 	dim3 blockSize(8, 8, 1);
-	dim3 gridSize(iDivUp(dimx, blockSize.x), iDivUp(dimy, blockSize.y), iDivUp(dimz, blockSize.z));
+	dim3 gridSize(iDivUp(dim.x, blockSize.x), iDivUp(dim.y, blockSize.y), iDivUp(dim.z, blockSize.z));
 
 	// Launch a kernel on the GPU with one thread for each element.
-	logScaleData <<< gridSize, blockSize >>> (dev_input, pWithLog ?1:0, dimx ,dimy ,dimz);
+	logScaleData <<< gridSize, blockSize >>> (dev_input, pWithLog ?1:0, dim);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
@@ -343,10 +342,10 @@ Error:
 
 }
 
-extern "C" void blurData(std::vector<float> pInput, std::vector<float>& pOutput, int pDimx, int  pDimy, int pDimz, int pRadius) {
+extern "C" void blurData(std::vector<float> pInput, std::vector<float>& pOutput, int3 pDim, int pRadius) {
 	float *dev_input = 0;
 	float *dev_output = 0;
-	int size = pDimx * pDimy*pDimz;
+	int size = pDim.x * pDim.y*pDim.z;
 	cudaError_t cudaStatus;
 
 	// Choose which GPU to run on, change this on a multi-GPU system.
@@ -377,10 +376,10 @@ extern "C" void blurData(std::vector<float> pInput, std::vector<float>& pOutput,
 	}
 
 	dim3 blockSize(8,8,1);
-	dim3 gridSize(iDivUp(pDimx, blockSize.x), iDivUp(pDimy, blockSize.y), iDivUp(pDimz, blockSize.z));
+	dim3 gridSize(iDivUp(pDim.x, blockSize.x), iDivUp(pDim.y, blockSize.y), iDivUp(pDim.z, blockSize.z));
 
 	// Launch a kernel on the GPU with one thread for each element.
-	blur <<< gridSize, blockSize >>> ( dev_input, dev_output, pDimx, pDimy, pDimz, pRadius);
+	blur <<< gridSize, blockSize >>> ( dev_input, dev_output, pDim, pRadius);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
@@ -410,15 +409,14 @@ Error:
 	
 }
 
-extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int height, int depth)
+extern "C" void initCuda( std::vector<unsigned char> h_volume, int3 pDim)
 {
-	size = width *height*depth;
-	dimx = width;
-	dimy = height;
-	dimz = depth;
+	size = pDim.x *pDim.y*pDim.z;
+	dim = pDim;
+	
 	//create 3D global texture
 	cudaChannelFormatDesc channelDescVolume = cudaCreateChannelDesc<unsigned char>();
-	cudaExtent vol_dim = { dimx, dimy, dimz };
+	cudaExtent vol_dim = { pDim.x, pDim.y, pDim.z };
 	cudaMalloc3DArray(&d_volumeArray, &channelDescVolume, vol_dim, cudaArraySurfaceLoadStore);
 	// copy data to 3D array
 	cudaMemcpy3DParms copyParamsVol = { 0 };
@@ -444,7 +442,7 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 	float4 transferFunc[] =
 	{
 		//----------		
-			{ 0.0, 0.0, 0.0, 0.0, },
+			{ 1.0, 0.0, 0.0, 0.0, },
 			{ 1.0, 0.0, 0.0, 1.0, },
 			{ 1.0, 0.5, 0.0, 1.0, },
 			{ 1.0, 1.0, 0.0, 1.0, },
@@ -454,7 +452,7 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 			{ 0.0, 0.0, 1.0, 1.0, },
 			{ 1.0, 0.0, 0.0, 1.0, },
 		//----------		
-			{ 0.0, 0.0, 0.0, 0.0, },
+			{ 1.0, 0.0, 0.0, 0.0, },
 			{ 1.0, 0.0, 0.0, 0.0, },
 			{ 1.0, 0.5, 0.0, 0.0, },
 			{ 1.0, 1.0, 0.0, 1.0, },
@@ -464,7 +462,7 @@ extern "C" void initCuda( std::vector<unsigned char> h_volume, int width, int he
 			{ 0.0, 0.0, 1.0, 1.0, },
 			{ 1.0, 0.0, 0.0, 1.0, },
 		//----------		
-			{ 0.0, 0.0, 0.0, 0.0, },
+			{ 1.0, 0.0, 0.0, 0.0, },
 			{ 1.0, 0.0, 0.0, 0.0, },
 			{ 1.0, 0.5, 0.0, 0.0, },
 			{ 1.0, 1.0, 0.0, 0.0, },
@@ -621,9 +619,9 @@ void freeCudaBuffers()
 
 extern "C"
 void render_kernel(dim3 gridSize, dim3 blockSize, unsigned int *d_output, unsigned int imageW, unsigned int imageH,
-	float density, float transferOffset, float3 dim)
+	float density, float transferOffset, float3 dim, float3 ratio)
 {
-	d_render <<<gridSize, blockSize >>>(d_output, imageW, imageH, density,  transferOffset, dim);
+	d_render <<<gridSize, blockSize >>>(d_output, imageW, imageH, density,  transferOffset, dim, ratio);
 }
 
 extern "C" void copyInvViewMatrix(std::vector<float> pInvViewMatrix)

@@ -91,7 +91,7 @@ void VolumeRaycaster::on_actionOpen_triggered() {
 		float fdimx = dimx * spacingX, fdimy = dimy * spacingY, fdimz = dimz * spacingZ;
 		float maxDim = std::max(std::max(fdimx, fdimy), fdimz);
 		float xratio = fdimx / maxDim, yratio = fdimy / maxDim, zratio  = fdimz / maxDim;
-		ui.openGLWidget->setData(voxels, dimx, dimy, dimz, xratio, yratio, zratio, minV, maxV);
+		ui.openGLWidget->setData(voxels, { dimx, dimy, dimz }, { xratio, yratio, zratio }, minV, maxV);
 
 	}
 

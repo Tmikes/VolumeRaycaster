@@ -6,7 +6,7 @@
 #include <execution>
 
 
-GLdouble AspectRatio;
+GLdouble wRatio, hRatio;
 QVector3D eye(0.5, 0.5, -2), target(0.5, 0.5, 0.5), up(0, 1, 0);
 int myDivUp(int a, int b)
 {
@@ -100,7 +100,9 @@ void GLMainView::updateViews()
 
 void GLMainView::resetViewer() {
 	mTwoViews = false;
-	mViews.push_back(Square(0, 0, 1, 1, mWidth, mHeight));
+	float maxDim = std::max(std::max(mRatio.x * mDim.x, mRatio.y * mDim.y), mRatio.z * mDim.z);
+	QVector3D firstTranslation(mRatio.x * mDim.x / maxDim - 1 , mRatio.y * mDim.y / maxDim - 1, mRatio.z * mDim.z / maxDim - 1);
+	mViews.push_back(Square(0, 0, 1, 1, mWidth, mHeight, firstTranslation));
 	mLoaded = false;
 	//mViews.push_back(Square(0.5, 0.5, 0.5, 0.5, mWidth, mHeight));
 
@@ -109,7 +111,7 @@ void GLMainView::resetViewer() {
 
 void GLMainView::setLogScale(bool withLogScale)
 {
-	std::vector<float> raw =  scaleVolume(mDimx, mDimy, mDimz, mData_raw, mMinV, mMaxV);
+	std::vector<float> raw =  scaleVolume( mData_raw, mMinV, mMaxV);
 	//blurData(mData_raw, mData_raw,mDimx, mDimy, mDimz,3);
 
 	std::vector<byte> tmp(raw.begin(), raw.end());
@@ -177,7 +179,7 @@ void GLMainView::raycast(Square& pView)
 	
 
 	// call CUDA kernel, writing results to PBO
-	render_kernel(gridSize, blockSize, d_output, pView.texWidth(), pView.texHeight(), mDensity, mTF_offset, float3({ (float)mDimx,(float)mDimy, (float)mDimz }));
+	render_kernel(gridSize, blockSize, d_output, pView.texWidth(), pView.texHeight(), mDensity, mTF_offset, {mDim.x*mRatio.x, mDim.y*mRatio.y, mDim.z*mRatio.z }, mRatio );
 
 	getLastCudaError("kernel failed");
 
@@ -226,27 +228,26 @@ GLMainView::~GLMainView()
 
 }
 
-void GLMainView::setData(std::vector<float> pDataraw, int pDimx, int pDimy, int pDimz,
-	float pRatiox , float pRatioy, float pRatioz, float minV, float maxV)
+void GLMainView::setData(std::vector<float> pDataraw, int3 pDim, float3 pRatio, float minV, float maxV)
 {
 	
-	mDimx = pDimx;
-	mDimy = pDimy;
-	mDimz = pDimz;
+	mDim = pDim;
+	
+	mRatio = pRatio;
 	mMinV = minV;
 	mMaxV = maxV;
 	mData_raw = pDataraw;
-	pDataraw = scaleVolume(mDimx, mDimy, mDimz, pDataraw, minV, maxV);
-	blurData(pDataraw, pDataraw,mDimx, mDimy, mDimz,3);
+	pDataraw = scaleVolume(pDataraw, minV, maxV);
+	blurData(pDataraw, pDataraw,mDim,3);
 
 	std::vector<byte> tmp(pDataraw.begin(), pDataraw.end());
 	mData = tmp;
-	initCuda(mData, mDimx, mDimy, mDimz);
+	initCuda(mData, mDim);
 	mLoaded = true;
 }
 
 
-std::vector<float> scaleVolume(int dimx, int dimy, int dimz, std::vector<float> voxels, float minV, float maxV)
+std::vector<float> scaleVolume( std::vector<float> voxels, float minV, float maxV)
 {
 	std::for_each(std::execution::par_unseq, voxels.begin(), voxels.end(), [minV,maxV](float& item)
 	{
@@ -325,7 +326,7 @@ void GLMainView::paintGL()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	mProgram->bind();
 	QMatrix4x4 projectionMatrix;
-	projectionMatrix.ortho(0, 1, 0, 1.0 , -2, 2);
+	projectionMatrix.ortho(0.5- wRatio/2, 0.5 - wRatio / 2+ wRatio, 0.5 - hRatio/2, 0.5 - hRatio / 2+ hRatio , -2, 2);
 	QMatrix4x4 viewMatrix;
 	viewMatrix.translate(0, 0, -1);
 	mProgram->setUniformValue(mMvpUniform, projectionMatrix*viewMatrix);
@@ -365,7 +366,17 @@ void GLMainView::paintGL()
 }
 
 void GLMainView::resizeGL(int pW, int pH) {
-	AspectRatio = (GLdouble)(pW) / (GLdouble)(pH);
+	if (pW > pH)
+	{
+		wRatio = 1;
+		hRatio = (GLdouble)(pH) / (GLdouble)(pW);
+	}
+	else
+	{
+		wRatio = (GLdouble)(pW) / (GLdouble)(pH);
+		hRatio = 1;
+	}
+	
 	glViewport(0, 0, pW, pH);
 }
 
@@ -387,4 +398,18 @@ void GLMainView::mousePressEvent(QMouseEvent * pEvent)
 {
 	oldX = pEvent->x();
 	oldY = pEvent->y();
+}
+
+void GLMainView::wheelEvent(QWheelEvent * event)
+{
+	 
+	if (event->delta() / 120 <  0)
+	{
+		mViews[0].zoom(1);
+	}
+	else
+	{
+		mViews[0].zoom(-1);
+	}
+	this->update();
 }
