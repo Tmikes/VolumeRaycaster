@@ -218,14 +218,13 @@ GLMainView::GLMainView(QWidget *pParent) : QOpenGLWidget(pParent)
 {
 	// creat the views heeere !!
 	
-	mWidth = mHeight = 1024;
-	mDensity = 0.05f;
+	mWidth = mHeight = 2048;
+	mDensity = 1.0f;
 }
 
 GLMainView::~GLMainView()
 {
 	freeCudaBuffers();
-
 }
 
 void GLMainView::setData(std::vector<float> pDataraw, int3 pDim, float3 pRatio, float minV, float maxV)
@@ -238,7 +237,7 @@ void GLMainView::setData(std::vector<float> pDataraw, int3 pDim, float3 pRatio, 
 	mMaxV = maxV;
 	mData_raw = pDataraw;
 	pDataraw = scaleVolume(pDataraw, minV, maxV);
-	blurData(pDataraw, pDataraw,mDim,3);
+	blurData(pDataraw, pDataraw,mDim,1);
 
 	std::vector<byte> tmp(pDataraw.begin(), pDataraw.end());
 	mData = tmp;

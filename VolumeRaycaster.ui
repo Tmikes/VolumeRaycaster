@@ -20,7 +20,7 @@
       <x>0</x>
       <y>0</y>
       <width>591</width>
-      <height>431</height>
+      <height>321</height>
      </rect>
     </property>
     <property name="sizePolicy">
@@ -50,6 +50,16 @@
     </property>
     <property name="tickInterval">
      <number>1</number>
+    </property>
+   </widget>
+   <widget class="QOpenGLWidget" name="tfLWidget">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>320</y>
+      <width>591</width>
+      <height>101</height>
+     </rect>
     </property>
    </widget>
   </widget>
