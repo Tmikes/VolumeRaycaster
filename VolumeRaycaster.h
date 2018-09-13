@@ -1,5 +1,5 @@
 #pragma once
-
+#include <gl/glew.h>
 #include <QtWidgets/QMainWindow>
 #include "ui_VolumeRaycaster.h"
 
@@ -20,6 +20,7 @@ private slots:
 	void on_actionDensityMinus_triggered();
 	void on_actionDensityAdd_triggered();
 	void on_actionLogScale_triggered();
+	void on_spinBox_valueChanged(int pValue);
 };
 
 void read_binary_data(QByteArray &data, int dimx, int dimy, int dimz, int bytes, int &count, int maxItem,

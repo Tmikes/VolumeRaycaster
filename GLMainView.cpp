@@ -1,4 +1,4 @@
-﻿#include <gl/glew.h>
+﻿//#include <gl/glew.h>
 #include "volumehelper.h"
 #include "GLMainView.h"
 #include <fstream>
@@ -109,6 +109,8 @@ void GLMainView::resetViewer() {
 
 }
 
+
+
 void GLMainView::setLogScale(bool withLogScale)
 {
 	std::vector<float> raw =  scaleVolume( mData_raw, mMinV, mMaxV);
@@ -118,6 +120,11 @@ void GLMainView::setLogScale(bool withLogScale)
 	mData = tmp;
 	logScale(mData, withLogScale);
 	update();
+}
+
+void GLMainView::setThreshold(int pThreshold)
+{
+	mMinV = pThreshold;
 }
 
 
@@ -287,7 +294,7 @@ void GLMainView::initializeGL()
 	//cuda
 	int devID = gpuGetMaxGflopsDeviceId();
 	cudaGLSetGLDevice(devID);
-
+	
 	glGenBuffers(1, &mIndexBuf);
 	resetViewer();
 	updateViews();

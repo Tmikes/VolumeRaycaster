@@ -21,8 +21,10 @@ private:
 	int mHeight;
 	float mMinV;
 	float mMaxV;
+	float mThreshold;
 	float mTransferOffset = 0;
 	float mDensity = 0;
+	
 	
 	std::vector<Square> mViews;
 
@@ -65,6 +67,7 @@ public:
 	void updateViews();
 	void resetViewer();
 	void setLogScale(bool logScale);
+	void setThreshold(int pThreshold);
 	explicit GLMainView(QWidget *pParent = 0);
 	~GLMainView();	
 	

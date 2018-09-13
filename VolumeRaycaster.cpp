@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <cstring>
 #include <algorithm>
+#include <iomanip> // setprecision
+#include <sstream> // stringstream
 #include <QTextCodec>
 VolumeRaycaster::VolumeRaycaster(QWidget *parent)
 	: QMainWindow(parent)
@@ -19,7 +21,8 @@ VolumeRaycaster::VolumeRaycaster(QWidget *parent)
 		this, SLOT(on_tfSlider_valueChanged));
 	connect(ui.actionLogScale, SIGNAL(ui.actionLogScale->triggered),
 		this, SLOT(on_actionLogScale_triggered));
-	
+	connect(ui.spinBox, SIGNAL(ui.spinBox->valueChanged),
+		this, SLOT(on_spinBox_valueChanged));
 	
 }
 
@@ -31,8 +34,10 @@ void VolumeRaycaster::resizeEvent(QResizeEvent* event) {
 		QSize delta = event->size() - old;
 		ui.openGLWidget->resize(ui.openGLWidget->size() + delta);
 		ui.tfSlider->resize(ui.tfSlider->width() + delta.width(), ui.tfSlider->height());
-		ui.tfSlider->move(QPoint(0, ui.tfSlider->pos().y() + delta.height()));
-		
+		ui.tfSlider->move(QPoint(ui.tfSlider->pos().x(), ui.tfSlider->pos().y() + delta.height()));
+		ui.minLabel->move(QPoint(ui.minLabel->pos().x(), ui.minLabel->pos().y() + delta.height()));
+		ui.maxLabel->move(QPoint(ui.maxLabel->pos().x(), ui.maxLabel->pos().y() + delta.height()));
+		ui.spinBox->move(QPoint(ui.spinBox->pos().x(), ui.spinBox->pos().y() + delta.height()));
 	}
 	
 }
@@ -92,6 +97,14 @@ void VolumeRaycaster::on_actionOpen_triggered() {
 		float maxDim = std::max(std::max(fdimx, fdimy), fdimz);
 		float xratio = fdimx / maxDim, yratio = fdimy / maxDim, zratio  = fdimz / maxDim;
 		ui.openGLWidget->setData(voxels, { dimx, dimy, dimz }, { xratio, yratio, zratio }, minV, maxV);
+		std::stringstream stream;
+		stream << std::fixed << std::setprecision(0) << minV;
+		ui.minLabel->setText(stream.str().c_str());
+		stream = std::stringstream();
+		stream << std::fixed << std::setprecision(0) << maxV;
+		ui.maxLabel->setText(stream.str().c_str());
+		ui.spinBox->setMinimum((int)minV);
+		ui.spinBox->setMaximum((int)maxV);
 
 	}
 
@@ -329,5 +342,11 @@ void VolumeRaycaster::on_actionDensityAdd_triggered()
 
 void VolumeRaycaster::on_actionLogScale_triggered()
 {
+	ui.openGLWidget->setLogScale(ui.actionLogScale->isChecked());
+}
+
+void VolumeRaycaster::on_spinBox_valueChanged(int pValue)
+{
+	ui.openGLWidget->setThreshold(ui.spinBox->value());
 	ui.openGLWidget->setLogScale(ui.actionLogScale->isChecked());
 }

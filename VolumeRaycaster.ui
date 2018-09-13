@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>627</width>
-    <height>514</height>
+    <height>496</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -33,10 +33,10 @@
    <widget class="QSlider" name="tfSlider">
     <property name="geometry">
      <rect>
-      <x>0</x>
-      <y>430</y>
-      <width>451</width>
-      <height>22</height>
+      <x>220</x>
+      <y>420</y>
+      <width>371</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="maximum">
@@ -52,13 +52,49 @@
      <number>1</number>
     </property>
    </widget>
-   <widget class="QOpenGLWidget" name="tfLWidget">
+   <widget class="GLTransferFunction" name="tfLWidget">
     <property name="geometry">
      <rect>
       <x>0</x>
       <y>320</y>
       <width>591</width>
       <height>101</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="minLabel">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>420</y>
+      <width>61</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>min</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="maxLabel">
+    <property name="geometry">
+     <rect>
+      <x>150</x>
+      <y>420</y>
+      <width>71</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>max</string>
+    </property>
+   </widget>
+   <widget class="QSpinBox" name="spinBox">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>420</y>
+      <width>81</width>
+      <height>21</height>
      </rect>
     </property>
    </widget>
@@ -291,6 +327,11 @@
    <class>GLMainView</class>
    <extends>QOpenGLWidget</extends>
    <header>glmainview.h</header>
+  </customwidget>
+  <customwidget>
+   <class>GLTransferFunction</class>
+   <extends>QOpenGLWidget</extends>
+   <header>GLTransferFunction.h</header>
   </customwidget>
  </customwidgets>
  <resources>
