@@ -15,8 +15,8 @@ void GLTransferFunction::wheelEvent(QWheelEvent * event)
 void GLTransferFunction::initializeGL()
 {
 	mProgram = std::make_unique<QOpenGLShaderProgram>(new QOpenGLShaderProgram(this));
-	mProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, "view.v.glsl");
-	mProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, "view.f.glsl");
+	mProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, "circle.v.glsl");
+	mProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, "circle.f.glsl");
 	mProgram->link();
 	mPosAttr = mProgram->attributeLocation("vertexPosition_modelspace");
 	mTexAttr = mProgram->attributeLocation("vertexUV");
