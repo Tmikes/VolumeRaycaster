@@ -16,39 +16,39 @@ void GLTransferFunction::resetTF() {
 	mColors = {
 		//----------
 		{
-			{ 1.0, 0.84, 0.45, 0.0, },
-			{ 1.0, 0.84, 0.45, 0.5, },
-			{ 1.0, 0.84, 0.45, 0.5, },
-			{ 0.0, 1.0, 0.0, 0.5, },
-			{ 0.0, 1.0, 0.0, 0.5, },
-			{ 0.0, 1.0, 0.0, 0.5, },
-			{ 0.0, 0.0, 1.0, 0.5, },
-			{ 0.0, 0.0, 1.0, 0.5, },
-			{ 0.0, 0.0, 1.0, 1.0, }
+			{ 1.0f, 0.84f, 0.45f, 0.0f, },
+			{ 1.0f, 0.84f, 0.45f, 0.5f, },
+			{ 1.0f, 0.84f, 0.45f, 0.5f, },
+			{ 0.0f, 1.0f, 0.0f, 0.5f, },
+			{ 0.0f, 1.0f, 0.0f, 0.5f, },
+			{ 0.0f, 1.0f, 0.0f, 0.5f, },
+			{ 0.0f, 0.0f, 1.0f, 0.5f, },
+			{ 0.0f, 0.0f, 1.0f, 0.5f, },
+			{ 0.0f, 0.0f, 1.0f, 1.0f, }
 		},
 		//----------		
 		{
-			{ 1.0, 0.84, 0.45, 0.0, },
-			{ 1.0, 0.84, 0.45, 0.0, },
-			{ 1.0, 0.84, 0.45, 0.0, },
-			{ 0.0, 1.0, 0.0, 0.5, },
-			{ 0.0, 1.0, 0.0, 0.5, },
-			{ 0.0, 1.0, 0.0, 0.5, },
-			{ 0.0, 0.0, 1.0, 0.5, },
-			{ 0.0, 0.0, 1.0, 0.5, },
-			{ 0.0, 0.0, 1.0, 1.0, }
+			{ 1.0f, 0.84f, 0.45f, 0.0f, },
+			{ 1.0f, 0.84f, 0.45f, 0.0f, },
+			{ 1.0f, 0.84f, 0.45f, 0.0f, },
+			{ 0.0f, 1.0f, 0.0f, 0.5f, },
+			{ 0.0f, 1.0f, 0.0f, 0.5f, },
+			{ 0.0f, 1.0f, 0.0f, 0.5f, },
+			{ 0.0f, 0.0f, 1.0f, 0.5f, },
+			{ 0.0f, 0.0f, 1.0f, 0.5f, },
+			{ 0.0f, 0.0f, 1.0f, 1.0f, }
 		},
 		//----------		
 		{
-			{ 1.0, 0.84, 0.45, 0.0, },
-			{ 1.0, 0.84, 0.45, 0.0, },
-			{ 1.0, 0.84, 0.45, 0.0, },
-			{ 0.0, 1.0, 0.0, 0.0, },
-			{ 0.0, 1.0, 0.0, 0.0, },
-			{ 0.0, 1.0, 0.0, 0.0, },
-			{ 0.0, 0.0, 1.0, 0.5, },
-			{ 0.0, 0.0, 1.0, 0.5, },
-			{ 0.0, 0.0, 1.0, 1.0, }
+			{ 1.0f, 0.84f, 0.45f, 0.0f, },
+			{ 1.0f, 0.84f, 0.45f, 0.0f, },
+			{ 1.0f, 0.84f, 0.45f, 0.0f, },
+			{ 0.0f, 1.0f, 0.0f, 0.0f, },
+			{ 0.0f, 1.0f, 0.0f, 0.0f, },
+			{ 0.0f, 1.0f, 0.0f, 0.0f, },
+			{ 0.0f, 0.0f, 1.0f, 0.5f, },
+			{ 0.0f, 0.0f, 1.0f, 0.5f, },
+			{ 0.0f, 0.0f, 1.0f, 1.0f, }
 		}
 	};
 
@@ -67,12 +67,15 @@ void GLTransferFunction::initializeGL()
 	mCenterAttr = mProgram->attributeLocation("vertexCenter");
 	mMvpUniform = mProgram->uniformLocation("MVP");
 	mTexUniform = mProgram->uniformLocation("myTextureSampler");
+	resetTF();
 	glGenTextures(1, &mTexture);
 	glBindTexture(GL_TEXTURE_1D, mTexture);
 	glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, mColors[mIndex].size(), 0, GL_RGBA, GL_FLOAT, mColors[mIndex].data());
 	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_1D, 0);
+	CirclePt c0(0.5,0.5,0.3);
+	mCircles.push_back(c0);
 }
 
 void GLTransferFunction::paintGL()
@@ -94,7 +97,7 @@ void GLTransferFunction::paintGL()
 		vertscount += currentVerts.size() / 2;
 	}
 
-	glClearColor(1.0, 0.0, 0.0, 1.0);
+	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	mProgram->bind();
 	QMatrix4x4 projectionMatrix;
@@ -110,7 +113,7 @@ void GLTransferFunction::paintGL()
 
 
 	glVertexAttribPointer(mPosAttr, 2, GL_FLOAT, GL_FALSE, 0, mVertsData.data());
-
+	glVertexAttribPointer(mCenterAttr, 2, GL_FLOAT, GL_FALSE, 0, mCenterData.data());
 	glVertexAttribPointer(mTexAttr, 2, GL_FLOAT, GL_FALSE, 0, mTexData.data());
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBuf);

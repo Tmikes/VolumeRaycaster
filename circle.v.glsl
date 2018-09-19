@@ -1,12 +1,13 @@
+#version 330
 
 // Input vertex data, different for all executions of this shader.
-attribute vec2 vertexPosition_modelspace;
-attribute vec2 vertexUV;
-attribute vec2 vertexCenter;
+in vec2 vertexPosition_modelspace;
+in vec2 vertexUV;
+in vec2 vertexCenter;
 
 // Output data ; will be interpolated for each fragment
-varying vec2 UV;
-flat varying vec2 center;
+out vec2 UV;
+flat out vec2 center;
 
 // Values that stay constant for the whole mesh.
 uniform mat4 MVP;

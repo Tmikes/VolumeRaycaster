@@ -34,7 +34,7 @@ std::vector<unsigned short> CirclePt::indices(unsigned int pOffset)
 CirclePt::CirclePt(float pX, float pY, float pR)
 {
 	int segments = 100; 
-	for (int n = 0; n <= segments; n++) {
+	for (int n = 0; n < segments; n++) {
 		float const t1 = 2 * M_PI * (float)n / (float)segments;
 		float const t2 = 2 * M_PI * (float)(n+1) / (float)segments;
 		
@@ -47,9 +47,12 @@ CirclePt::CirclePt(float pX, float pY, float pR)
 		mVertices.push_back(pY + cos(t2) * pR);
 
 		// texcoords
-		mVertices.push_back(pX);
+		mTexcoords.push_back(pX);
+		mTexcoords.push_back(pY);
 		mTexcoords.push_back(pX + sin(t1) * pR);
-		mVertices.push_back(pX + sin(t2) * pR);
+		mTexcoords.push_back(pY + cos(t1) * pR);
+		mTexcoords.push_back(pX + sin(t2) * pR);
+		mTexcoords.push_back(pY + cos(t2) * pR);
 
 		// indices
 		mIndices.push_back(n * 3 + 0);

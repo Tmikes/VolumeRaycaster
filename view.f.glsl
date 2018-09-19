@@ -1,6 +1,6 @@
-
+#version 330
 // Interpolated values from the vertex shaders
-varying vec2 UV;
+in vec2 UV;
 
 // Ouput data
 
