@@ -1,9 +1,9 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "CirclePt.h"
-//#include <algorithm>
+#include <algorithm>
 #include <execution>
-
+#include <cctype>
 
 
 std::vector<float> CirclePt::vertices()
@@ -73,10 +73,7 @@ CirclePt::CirclePt(float pX, float pY, float pA, float pB)
 
 void CirclePt::updateRadius(float pA, float pB)
 {
-	std::for_each(std::execution::par_unseq, mVertices.begin(), mVertices.end(), [pA,pB](float& item)
-	{
-		item += pOffset;
-	});
+
 }
 
 
