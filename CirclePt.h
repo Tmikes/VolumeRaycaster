@@ -13,7 +13,8 @@ public:
 	std::vector<float> texcoords();
 	std::vector<float> center();
 	std::vector<unsigned short> indices(unsigned int pOffset = 0);
-	CirclePt(float pX, float pY, float pR);
+	CirclePt(float pX, float pY, float pA, float pB);
+	void updateRadius(float pA, float pB);
 	~CirclePt();
 };
 

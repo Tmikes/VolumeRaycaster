@@ -31,7 +31,7 @@ std::vector<unsigned short> CirclePt::indices(unsigned int pOffset)
 	return tmp;
 }
 
-CirclePt::CirclePt(float pX, float pY, float pR)
+CirclePt::CirclePt(float pX, float pY, float pA, float pB)
 {
 	int segments = 100; 
 	for (int n = 0; n < segments; n++) {
@@ -41,18 +41,18 @@ CirclePt::CirclePt(float pX, float pY, float pR)
 		// vertices
 		mVertices.push_back(pX);
 		mVertices.push_back(pY);
-		mVertices.push_back(pX + sin(t1) * pR);
-		mVertices.push_back(pY + cos(t1) * pR);
-		mVertices.push_back(pX + sin(t2) * pR);
-		mVertices.push_back(pY + cos(t2) * pR);
+		mVertices.push_back(pX + sin(t1) * pA);
+		mVertices.push_back(pY + cos(t1) * pB);
+		mVertices.push_back(pX + sin(t2) * pA);
+		mVertices.push_back(pY + cos(t2) * pB);
 
 		// texcoords
 		mTexcoords.push_back(pX);
 		mTexcoords.push_back(pY);
-		mTexcoords.push_back(pX + sin(t1) * pR);
-		mTexcoords.push_back(pY + cos(t1) * pR);
-		mTexcoords.push_back(pX + sin(t2) * pR);
-		mTexcoords.push_back(pY + cos(t2) * pR);
+		mTexcoords.push_back(pX + sin(t1) * pA);
+		mTexcoords.push_back(pY + cos(t1) * pB);
+		mTexcoords.push_back(pX + sin(t2) * pA);
+		mTexcoords.push_back(pY + cos(t2) * pB);
 
 		// indices
 		mIndices.push_back(n * 3 + 0);
@@ -69,6 +69,14 @@ CirclePt::CirclePt(float pX, float pY, float pR)
 		mCenter.push_back(pX);
 		mCenter.push_back(pY);
 	}
+}
+
+void CirclePt::updateRadius(float pA, float pB)
+{
+	std::for_each(std::execution::par_unseq, mVertices.begin(), mVertices.end(), [pA,pB](float& item)
+	{
+		item += pOffset;
+	});
 }
 
 

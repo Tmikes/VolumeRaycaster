@@ -1,5 +1,7 @@
 #include "GLTransferFunction.h"
 
+
+float wRatio;
 void GLTransferFunction::mouseMoveEvent(QMouseEvent * pEvent)
 {
 }
@@ -74,8 +76,14 @@ void GLTransferFunction::initializeGL()
 	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_1D, 0);
-	CirclePt c0(0.5,0.5,0.3);
-	mCircles.push_back(c0);
+	for (int i = 0; i < mColors[mIndex].size(); i++)
+	{
+		float x = i / (float)(mColors[mIndex].size() - 1);
+		float y = mColors[mIndex][i].w;
+		mCircles.push_back(CirclePt(x,y,0.05f,0.05f));
+	}
+	//CirclePt c0(0.5,0.5,0.3);
+	//mCircles.push_back(c0);
 }
 
 void GLTransferFunction::paintGL()
@@ -144,6 +152,10 @@ void GLTransferFunction::paintGL()
 
 void GLTransferFunction::resizeGL(int pW, int pH)
 {
+
+	wRatio = (GLdouble)(pW) / (GLdouble)(pH);
+
+	glViewport(0, 0, pW, pH);
 }
 
 GLTransferFunction::GLTransferFunction(QWidget * pParent) : QOpenGLWidget(pParent)

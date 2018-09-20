@@ -25,7 +25,7 @@ private:
 	GLuint mTexture;
 	GLuint mMvpUniform;
 	GLuint mTexUniform;
-
+	
 	
 	const float mDensityDelta = 0.01f;
 	std::vector<GLfloat> mVertsData;
