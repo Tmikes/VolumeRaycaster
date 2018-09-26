@@ -11,6 +11,21 @@ std::vector<float> CirclePt::vertices()
 	return mVertices;
 }
 
+void CirclePt::setVertices(std::vector<float>& const pSource, int pOffset)
+{
+	std::copy(pSource.begin() + pOffset, pSource.begin() + mVertices.size() + pOffset, mVertices.begin());
+}
+
+void CirclePt::setTexcoords(std::vector<float>& const pSource, int pOffset)
+{
+	std::copy(pSource.begin() + pOffset, pSource.begin() + mTexcoords.size() + pOffset, mTexcoords.begin());
+}
+
+void CirclePt::setCenter(std::vector<float>& const pSource, int pOffset)
+{
+	std::copy(pSource.begin() + pOffset, pSource.begin() + mCenter.size() + pOffset, mCenter.begin());
+}
+
 std::vector<float> CirclePt::texcoords()
 {
 	return mTexcoords;
@@ -33,7 +48,7 @@ std::vector<unsigned short> CirclePt::indices(unsigned int pOffset)
 
 CirclePt::CirclePt(float pX, float pY, float pA, float pB)
 {
-	int segments = 100; 
+	int segments = CirclePt::nbrTriangles;
 	for (int n = 0; n < segments; n++) {
 		float const t1 = 2 * M_PI * (float)n / (float)segments;
 		float const t2 = 2 * M_PI * (float)(n+1) / (float)segments;

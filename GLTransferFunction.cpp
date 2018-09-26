@@ -1,7 +1,9 @@
+#include "volumehelper.h"
 #include "GLTransferFunction.h"
 
 
-float wRatio;
+
+
 void GLTransferFunction::mouseMoveEvent(QMouseEvent * pEvent)
 {
 }
@@ -56,7 +58,7 @@ void GLTransferFunction::resetTF() {
 
 
 }
-
+float wRatio;
 void GLTransferFunction::initializeGL()
 {
 	mIndex = 0;
@@ -76,11 +78,14 @@ void GLTransferFunction::initializeGL()
 	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_1D, 0);
+	wRatio = 0.5f;
 	for (int i = 0; i < mColors[mIndex].size(); i++)
 	{
 		float x = i / (float)(mColors[mIndex].size() - 1);
 		float y = mColors[mIndex][i].w;
-		mCircles.push_back(CirclePt(x,y,0.05f,0.05f));
+		mCenters.push_back(x);
+		mCenters.push_back(y);
+		mCircles.push_back(CirclePt(x, y, 0.05f , 0.05f));
 	}
 	//CirclePt c0(0.5,0.5,0.3);
 	//mCircles.push_back(c0);
@@ -153,9 +158,29 @@ void GLTransferFunction::paintGL()
 void GLTransferFunction::resizeGL(int pW, int pH)
 {
 
-	wRatio = (GLdouble)(pW) / (GLdouble)(pH);
+	wRatio =  (pW*1.0f) / pH;
+	mVertsData.clear();
+	mCenterData.clear();
+	for (std::vector<CirclePt>::iterator circle = mCircles.begin(); circle != mCircles.end(); ++circle)
+	{
+		std::vector<GLfloat> currentVerts = circle->vertices(), currentCenter = circle->center();
+		mVertsData.insert(mVertsData.end(), currentVerts.begin(), currentVerts.end());
+		mCenterData.insert(mCenterData.end(), currentCenter.begin(), currentCenter.end());
+		
+	}
+	int nbr = CirclePt::nbrTriangles;
+	updateCircleData(nbr, mCenters , mVertsData,  mCenterData, 0.05f / wRatio , 0.05f);
+	int offset = 0;
+	for (std::vector<CirclePt>::iterator circle = mCircles.begin(); circle != mCircles.end(); ++circle)
+	{
+		circle->setVertices(mVertsData, offset);
+		circle->setTexcoords(mVertsData, offset);
+		circle->setCenter(mCenterData, offset);		
+		offset += circle->vertices().size();
 
+	}
 	glViewport(0, 0, pW, pH);
+	update();
 }
 
 GLTransferFunction::GLTransferFunction(QWidget * pParent) : QOpenGLWidget(pParent)

@@ -15,7 +15,7 @@ class GLTransferFunction : public QOpenGLWidget
 	Q_OBJECT
 private:
 	std::vector<std::vector<float4>> mColors;
-
+	std::vector<float> mCenters;
 	std::unique_ptr<QOpenGLShaderProgram>  mProgram;
 	float mIndex;
 	GLuint mPosAttr;

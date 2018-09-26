@@ -169,9 +169,6 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 		color.y = fminf(color.y, 1);
 		color.z = fminf(color.z, 1);
 
-
-
-
 		// "under" operator for back-to-front blending
 		//sum = lerp(sum, col, col.w);
 
@@ -195,3 +192,11 @@ d_render(uint *d_output, uint imageW, uint imageH, float density, float transfer
 	// write output color
 	d_output[y*imageW + x] = rgbaFloatToInt(sum);
 }
+
+extern "C"
+void render_kernel(dim3 gridSize, dim3 blockSize, unsigned int *d_output, unsigned int imageW, unsigned int imageH,
+	float density, float transferOffset, float3 dim, float3 ratio)
+{
+	d_render <<<gridSize, blockSize >>>(d_output, imageW, imageH, density, transferOffset, dim, ratio);
+}
+
